@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import CartaoPersonalizado from '../components/CartaoPersonalizado';
-import { ListaTransacoes } from '../components/ListaTransacoes';
+import ListaTransacoes from '../components/ListaTransacoes';
 import { useModal } from '../context/ModalContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,7 +11,6 @@ import SearchBar from '../components/SearchBar';
 import { supabase } from '../supabaseClient';
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Função auxiliar para formatar moeda
 const formatCurrency = (value) =>
   new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -80,32 +79,37 @@ const CardDetailPage = ({ banco, onBack, selectedMonth }) => {
     return sorted;
   }, [banco, selectedMonth, transactions, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
 
-  // ✅ 1. CÁLCULO DINÂMICO DO VALOR TOTAL
-  // Este 'useMemo' recalcula o total sempre que a lista 'despesasDoMes' (filtrada ou não) mudar.
   const totalDespesasValor = useMemo(() => {
-    return despesasDoMes.reduce((sum, despesa) => sum + despesa.amount, 0);
+    // ✅ CORREÇÃO AQUI: (despesasDoMes || []) garante que a função nunca falhe.
+    return (despesasDoMes || []).reduce((sum, despesa) => sum + (despesa.amount || 0), 0);
   }, [despesasDoMes]);
 
-  const totalPages = Math.ceil(despesasDoMes.length / itemsPerPage);
-  const currentData = despesasDoMes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil((despesasDoMes?.length || 0) / itemsPerPage);
+  const currentData = despesasDoMes ? despesasDoMes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : [];
 
   const nextPage = () => setCurrentPage((current) => Math.min(current + 1, totalPages));
   const prevPage = () => setCurrentPage((current) => Math.max(current - 1, 1));
   
   const handleSaveDespesa = async (dadosDaDespesa) => {
-    // ... (função de salvar continua a mesma)
-  };
-  const handleEditDespesa = (despesa) => {
-    // ... (função de editar continua a mesma)
-  };
-  const handleDeleteDespesa = (despesa) => {
-    // ... (função de deletar continua a mesma)
+    // ... (função de salvar)
   };
 
-  // ✅ 2. TEXTOS DINÂMICOS PARA O CABEÇALHO
-  // Muda o título e a descrição com base no estado do filtro.
+  const handleEditDespesa = (despesa) => {
+    const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
+    showModal('novaDespesa', { despesaParaEditar: despesaOriginal, onSave: handleSaveDespesa });
+  };
+  
+  const handleDeleteDespesa = (despesa) => {
+    const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
+    showModal('confirmation', {
+      title: 'Confirmar Exclusão',
+      description: `Tem certeza que deseja excluir a despesa "${despesaOriginal.description}"?`,
+      onConfirm: async () => { await deleteDespesa(despesaOriginal); fetchData(); }
+    });
+  };
+
   const cardTitle = mostrarApenasParcelados ? `Parcelas de ${banco.nome}` : `Transações de ${banco.nome}`;
-  const transactionLabel = mostrarApenasParcelados ? (despesasDoMes.length === 1 ? 'parcela' : 'parcelas') : (despesasDoMes.length === 1 ? 'transação' : 'transações');
+  const transactionLabel = mostrarApenasParcelados ? ((despesasDoMes?.length || 0) === 1 ? 'parcela' : 'parcelas') : ((despesasDoMes?.length || 0) === 1 ? 'transação' : 'transações');
 
   return (
     <div className="p-4 md:p-6 space-y-4 flex flex-col h-full overflow-hidden"> 
@@ -136,11 +140,10 @@ const CardDetailPage = ({ banco, onBack, selectedMonth }) => {
       <Card className="flex-grow flex flex-col min-h-0">
         <CardHeader className="flex-shrink-0">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            {/* ✅ 3. TÍTULO E DESCRIÇÃO AGORA SÃO DINÂMICOS */}
             <div>
               <CardTitle>{cardTitle}</CardTitle>
               <CardDescription className="mt-1">
-                {formatCurrency(totalDespesasValor)} em {despesasDoMes.length} {transactionLabel}
+                {formatCurrency(totalDespesasValor)} em {despesasDoMes?.length || 0} {transactionLabel}
               </CardDescription>
             </div>
             
