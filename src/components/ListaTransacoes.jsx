@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { useModal } from '../context/ModalContext';
 
-export const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
+// ✅ ALTERAÇÃO AQUI: 'export' foi removido do início da linha
+const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
   const { showModal } = useModal();
 
   const formatDate = (dateString) => {
@@ -48,7 +49,6 @@ export const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
             <TableCell className="font-medium">
               <div>{despesa.description || despesa.descricao}</div>
               <div className="text-xs text-muted-foreground flex items-center">
-                {/* ✅ CORREÇÃO AQUI: Exibe APENAS a data da compra */}
                 <span>{formatDate(despesa.data_compra)}</span>
                 
                 {despesa.parcelaInfo && (
@@ -84,3 +84,6 @@ export const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
     </Table>
   );
 };
+
+// ✅ ALTERAÇÃO AQUI: Adiciona a exportação padrão no final do arquivo
+export default ListaTransacoes;
