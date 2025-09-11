@@ -1,0 +1,7 @@
+ignoredBuiltDependencies:
+  - esbuild
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - core-js
+  - supabase
