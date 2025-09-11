@@ -80,7 +80,6 @@ const CardDetailPage = ({ banco, onBack, selectedMonth }) => {
   }, [banco, selectedMonth, transactions, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
 
   const totalDespesasValor = useMemo(() => {
-    // ✅ CORREÇÃO AQUI: (despesasDoMes || []) garante que a função nunca falhe.
     return (despesasDoMes || []).reduce((sum, despesa) => sum + (despesa.amount || 0), 0);
   }, [despesasDoMes]);
 
@@ -90,8 +89,29 @@ const CardDetailPage = ({ banco, onBack, selectedMonth }) => {
   const nextPage = () => setCurrentPage((current) => Math.min(current + 1, totalPages));
   const prevPage = () => setCurrentPage((current) => Math.max(current - 1, 1));
   
+  // ✅ ESTA É A VERSÃO CORRETA E FINAL DA FUNÇÃO handleSaveDespesa
   const handleSaveDespesa = async (dadosDaDespesa) => {
-    // ... (função de salvar)
+    try {
+      let savedData;
+      if (dadosDaDespesa.id) {
+        // Modo Edição
+        const { data, error } = await supabase.from('despesas').update(dadosDaDespesa).eq('id', dadosDaDespesa.id).select().single();
+        if (error) throw error;
+        savedData = data;
+      } else {
+        // Modo Criação
+        const { data, error } = await supabase.from('despesas').insert(dadosDaDespesa).select().single();
+        if (error) throw error;
+        savedData = data;
+      }
+      
+      fetchData(); // Atualiza os dados na tela
+      return savedData; // Retorna os dados para o modal
+
+    } catch (error) {
+      console.error("Erro capturado em handleSaveDespesa:", error);
+      throw error;
+    }
   };
 
   const handleEditDespesa = (despesa) => {
@@ -100,11 +120,15 @@ const CardDetailPage = ({ banco, onBack, selectedMonth }) => {
   };
   
   const handleDeleteDespesa = (despesa) => {
-    const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
+    const despesaOriginal = transactions.find(t => !t.is_fixed && t.id === despesa.despesa_id) || despesa;
+
     showModal('confirmation', {
       title: 'Confirmar Exclusão',
-      description: `Tem certeza que deseja excluir a despesa "${despesaOriginal.description}"?`,
-      onConfirm: async () => { await deleteDespesa(despesaOriginal); fetchData(); }
+      description: `Tem certeza que deseja excluir a despesa "${despesaOriginal.description}"? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => { 
+        await deleteDespesa(despesaOriginal); 
+        fetchData(); 
+      }
     });
   };
 
