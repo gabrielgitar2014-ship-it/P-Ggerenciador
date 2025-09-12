@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useModal } from '../context/ModalContext';
-import { ListaTransacoes } from '../components/ListaTransacoes';
+import  ListaTransacoes  from '../components/ListaTransacoes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -179,5 +179,6 @@ const AllExpensesPage = ({ onBack, selectedMonth }) => {
     </div>
   );
 };
+
 
 export default AllExpensesPage;
