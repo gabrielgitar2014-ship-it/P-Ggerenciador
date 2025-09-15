@@ -281,6 +281,48 @@ export function FinanceProvider({ children }) {
     }
   };
 
+  // ============================================
+  // DELETE INCOME (renda)
+  // ============================================
+  const deleteIncome = async (incomeId) => {
+    console.groupCollapsed('[FinanceContext.deleteIncome] start');
+    
+    if (!incomeId) {
+      console.error('[FinanceContext.deleteIncome] ERRO: ID da renda é inválido.', incomeId);
+      alert('Erro: ID da renda inválido.');
+      console.groupEnd();
+      return { ok: false, error: 'ID inválido' };
+    }
+
+    try {
+      console.log(`[FinanceContext.deleteIncome] Deletando renda da tabela 'transactions' com id: ${incomeId}`);
+      
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', incomeId)
+        .eq('type', 'income'); // Garante que estamos deletando apenas uma renda
+
+      if (error) {
+        console.error('[FinanceContext.deleteIncome] ERRO do Supabase:', error);
+        alert(`Erro do Supabase: ${error.message}`);
+        throw error;
+      }
+      
+      console.log('[FinanceContext.deleteIncome] Renda deletada com sucesso.');
+      return { ok: true };
+
+    } catch (err) {
+      console.error('[FinanceContext.deleteIncome] FALHA:', err);
+      setError(err?.message || String(err));
+      return { ok: false, error: err };
+    } finally {
+      console.debug('[FinanceContext.deleteIncome] refetch após delete…');
+      await fetchData();
+      console.groupEnd();
+    }
+  };
+
   // =====================================================
   // SALDO POR BANCO (usa transactions + parcelas) + LOGS
   // =====================================================
@@ -319,6 +361,7 @@ export function FinanceProvider({ children }) {
     getSaldoPorBanco,
     deleteDespesa,
     saveFixedExpense,
+    deleteIncome, // <-- CORREÇÃO APLICADA
   };
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
