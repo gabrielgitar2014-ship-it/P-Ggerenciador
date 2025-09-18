@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient'; // Seu cliente Supabase
+import { supabase } from '../../supabaseClient';
+// ✅ 1. IMPORTAÇÃO DO CALCULADORAMODAL REMOVIDA
 import { METODOS_DE_PAGAMENTO } from '../../constants/paymentMethods';
 import { CircleDollarSign, PencilLine, CreditCard, Calendar, CalendarClock, Repeat, Hash, Check } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
@@ -83,6 +84,7 @@ const getInitialState = (despesaParaEditar = null) => {
 /* ====================== Componente ========================= */
 export default function NovaDespesaModal({ onClose, onSave, despesaParaEditar }) {
   const [formData, setFormData] = useState(() => getInitialState(despesaParaEditar));
+  // ✅ 2. ESTADO DO MODAL DA CALCULADORA REMOVIDO
   const [isSaving, setIsSaving] = useState(false);
   const isEdit = !!despesaParaEditar?.id;
   const { fetchData } = useFinance();
@@ -95,6 +97,8 @@ export default function NovaDespesaModal({ onClose, onSave, despesaParaEditar })
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
+
+  // ✅ 3. FUNÇÃO DE CALLBACK DA CALCULADORA REMOVIDA
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,22 +106,6 @@ export default function NovaDespesaModal({ onClose, onSave, despesaParaEditar })
 
     try {
       setIsSaving(true);
-
-      // --- INÍCIO DA CORREÇÃO ---
-      // 1. Obter o usuário da sessão atual.
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 2. Validar se o usuário está logado.
-      if (!user) {
-        // Você pode usar uma biblioteca de notificações aqui se preferir.
-        alert('Sua sessão expirou. Por favor, faça login novamente para continuar.');
-        setIsSaving(false);
-        // Opcional: redirecionar para a página de login.
-        // window.location.href = '/login';
-        return;
-      }
-      // --- FIM DA CORREÇÃO ---
-
       const is_parcelado = !!formData.isParcelado;
       const qtd_parcelas = is_parcelado ? Math.max(2, parseInt(formData.qtd_parcelas || '2', 10)) : 1;
       const mes_inicio_db = toFirstDay(formData.mes_inicio_cobranca);
@@ -133,10 +121,6 @@ export default function NovaDespesaModal({ onClose, onSave, despesaParaEditar })
       }
 
       const dadosParaSalvar = {
-        // --- INÍCIO DA CORREÇÃO ---
-        // 3. Adicionar o ID do usuário aos dados que serão salvos.
-        user_id: user.id,
-        // --- FIM DA CORREÇÃO ---
         amount: amountNumber,
         description: formData.description?.trim(),
         metodo_pagamento: formData.metodo_pagamento,
@@ -186,78 +170,83 @@ export default function NovaDespesaModal({ onClose, onSave, despesaParaEditar })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative animate-slide-up">
-        <div className="pb-4 border-b border-slate-200 dark:border-slate-600 mb-6">
-          <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-500 dark:from-blue-400 dark:to-purple-400">
-            {isEdit ? 'Editar Despesa' : 'Nova Despesa'}
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Preencha os detalhes da sua despesa.</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <label htmlFor="amount" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Valor (total)</label>
-              <CircleDollarSign className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
-              <input id="amount" type="number" step="0.01" inputMode="decimal" name="amount" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.amount} onChange={handleInputChange} placeholder="0.00" required />
-            </div>
-            <div className="relative">
-              <label htmlFor="description" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Descrição</label>
-              <PencilLine className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
-              <input id="description" type="text" name="description" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.description} onChange={handleInputChange} placeholder="Ex: Compras no mercado" required />
-            </div>
+    <>
+      {/* ✅ 4. RENDERIZAÇÃO CONDICIONAL DA CALCULADORA REMOVIDA */}
+      
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative animate-slide-up">
+          <div className="pb-4 border-b border-slate-200 dark:border-slate-600 mb-6">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-500 dark:from-blue-400 dark:to-purple-400">
+              {isEdit ? 'Editar Despesa' : 'Nova Despesa'}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Preencha os detalhes da sua despesa.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <label htmlFor="data_compra" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Data da compra</label>
-              <Calendar className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
-              <input id="data_compra" type="date" name="data_compra" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.data_compra} onChange={handleInputChange} required />
-            </div>
-            <div className="relative">
-              <label htmlFor="mes_inicio_cobranca" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Início da Cobrança</label>
-              <CalendarClock className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
-              <input id="mes_inicio_cobranca" type="month" name="mes_inicio_cobranca" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.mes_inicio_cobranca} onChange={handleInputChange} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <label htmlFor="metodo_pagamento" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Método de pagamento</label>
-              <CreditCard className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
-              <select id="metodo_pagamento" name="metodo_pagamento" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition bg-white" value={formData.metodo_pagamento} onChange={handleInputChange}>
-                {(METODOS_DE_PAGAMENTO || ['Itaú', 'Bradesco', 'Nubank', 'PIX']).map((m) => (<option key={m} value={m}>{m}</option>))}
-              </select>
-            </div>
-            <div className="flex flex-col justify-between">
-              <div className="flex items-center space-x-3 mt-1">
-                <input id="isParcelado" type="checkbox" name="isParcelado" checked={!!formData.isParcelado} onChange={handleInputChange} className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer" />
-                <label htmlFor="isParcelado" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-2">
-                  <Repeat size={18} /> Parcelado?
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <label htmlFor="amount" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Valor (total)</label>
+                <CircleDollarSign className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <input id="amount" type="number" step="0.01" inputMode="decimal" name="amount" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.amount} onChange={handleInputChange} placeholder="0.00" required />
+                {/* ✅ 5. BOTÃO QUE ABRE A CALCULADORA REMOVIDO */}
               </div>
-              {formData.isParcelado && (
-                <div className="relative mt-2 animate-fade-in">
-                  <Hash className="absolute left-3 top-3 h-5 w-5 text-slate-400 dark:text-slate-500" />
-                  <input id="qtd_parcelas" type="number" name="qtd_parcelas" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" min={2} step="1" value={formData.qtd_parcelas || ''} onChange={handleInputChange} placeholder="Qtd. Parcelas" required={formData.isParcelado} />
-                </div>
-              )}
+              <div className="relative">
+                <label htmlFor="description" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Descrição</label>
+                <PencilLine className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <input id="description" type="text" name="description" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.description} onChange={handleInputChange} placeholder="Ex: Compras no mercado" required />
+              </div>
             </div>
-          </div>
-          <hr className="border-slate-200 dark:border-slate-600 !mt-8" />
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-5 py-2 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-150 ease-in-out">
-              Cancelar
-            </button>
-            <button type="submit" disabled={isSaving} className="px-5 py-2 inline-flex items-center gap-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed transition duration-150 ease-in-out">
-              {isSaving ? 'Salvando...' : (
-                <>
-                  <Check size={18} />
-                  {isEdit ? 'Salvar' : 'Adicionar'}
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <label htmlFor="data_compra" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Data da compra</label>
+                <Calendar className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <input id="data_compra" type="date" name="data_compra" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.data_compra} onChange={handleInputChange} required />
+              </div>
+              <div className="relative">
+                <label htmlFor="mes_inicio_cobranca" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Início da Cobrança</label>
+                <CalendarClock className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <input id="mes_inicio_cobranca" type="month" name="mes_inicio_cobranca" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" value={formData.mes_inicio_cobranca} onChange={handleInputChange} required />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <label htmlFor="metodo_pagamento" className="block text-sm font-semibold mb-1 text-slate-700 dark:text-slate-300">Método de pagamento</label>
+                <CreditCard className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <select id="metodo_pagamento" name="metodo_pagamento" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition bg-white" value={formData.metodo_pagamento} onChange={handleInputChange}>
+                  {(METODOS_DE_PAGAMENTO || ['Itaú', 'Bradesco', 'Nubank', 'PIX']).map((m) => (<option key={m} value={m}>{m}</option>))}
+                </select>
+              </div>
+              <div className="flex flex-col justify-between">
+                <div className="flex items-center space-x-3 mt-1">
+                  <input id="isParcelado" type="checkbox" name="isParcelado" checked={!!formData.isParcelado} onChange={handleInputChange} className="h-5 w-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer" />
+                  <label htmlFor="isParcelado" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-2">
+                    <Repeat size={18} /> Parcelado?
+                  </label>
+                </div>
+                {formData.isParcelado && (
+                  <div className="relative mt-2 animate-fade-in">
+                    <Hash className="absolute left-3 top-3 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                    <input id="qtd_parcelas" type="number" name="qtd_parcelas" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 transition" min={2} step="1" value={formData.qtd_parcelas || ''} onChange={handleInputChange} placeholder="Qtd. Parcelas" required={formData.isParcelado} />
+                  </div>
+                )}
+              </div>
+            </div>
+            <hr className="border-slate-200 dark:border-slate-600 !mt-8" />
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={onClose} className="px-5 py-2 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 rounded-lg shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-150 ease-in-out">
+                Cancelar
+              </button>
+              <button type="submit" disabled={isSaving} className="px-5 py-2 inline-flex items-center gap-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                {isSaving ? 'Salvando...' : (
+                  <>
+                    <Check size={18} />
+                    {isEdit ? 'Salvar' : 'Adicionar'}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
