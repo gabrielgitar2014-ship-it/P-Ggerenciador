@@ -1,7 +1,25 @@
-// src/components/Header.jsx
 import React from 'react';
+import { useVisibility } from '../context/VisibilityContext';
+import { useTheme } from '../context/ThemeContext';
+import { Eye, EyeOff, Sun, Moon, Monitor } from 'lucide-react';
 
-export default function Header({ selectedMonth, setSelectedMonth, isMenuOpen, setIsMenuOpen }) {
+export default function Header({ selectedMonth, setSelectedMonth }) {
+  const { valuesVisible, toggleValuesVisibility } = useVisibility();
+  const { theme, setTheme } = useTheme();
+
+  const handleThemeCycle = () => {
+    const themes = ['light', 'dark', 'system'];
+    const currentIndex = themes.indexOf(theme);
+    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    setTheme(nextTheme);
+  };
+
+  const ThemeInfo = () => {
+    if (theme === 'light') return { Icon: Moon, text: 'Mudar para Tema Escuro' };
+    if (theme === 'dark') return { Icon: Sun, text: 'Mudar para Tema Claro' };
+    return { Icon: Monitor, text: 'Mudar para Tema do Sistema' };
+  };
+  const { Icon: ThemeIcon, text: themeText } = ThemeInfo();
 
   const handleMonthChange = (e) => {
     setSelectedMonth(e.target.value);
@@ -24,19 +42,29 @@ export default function Header({ selectedMonth, setSelectedMonth, isMenuOpen, se
   };
 
   return (
-    <header className={`sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700 transition-all duration-300`}>
+    <header className={`sticky top-0 z-40 transition-all duration-300`}>
       <div className="flex justify-between items-center p-4 h-20">
-        <div className="flex-1 flex items-center justify-start">
+        <div className="flex-1 flex items-center justify-start gap-2">
           <button
-            onClick={() => setIsMenuOpen(true)}
-            className="p-2 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            title="Menu Principal"
+            onClick={toggleValuesVisibility}
+            // 👇 CLASSES ALTERADAS AQUI para o efeito neon
+            className="p-2 text-cyan-400 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+            title={valuesVisible ? "Ocultar valores" : "Mostrar valores"}
           >
-            <span className="material-symbols-outlined">menu</span>
+            {valuesVisible ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
+          </button>
+          
+          <button
+            onClick={handleThemeCycle}
+            // 👇 CLASSES ALTERADAS AQUI para o efeito neon
+            className="p-2 text-cyan-400 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+            title={themeText}
+          >
+            <ThemeIcon className="w-6 h-6" />
           </button>
         </div>
+
         <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white"></h1>
         </div>
         <div className="flex-1 flex items-center justify-end gap-2">
           <button
@@ -51,7 +79,7 @@ export default function Header({ selectedMonth, setSelectedMonth, isMenuOpen, se
               type="month"
               value={selectedMonth}
               onChange={handleMonthChange}
-              className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm px-2 py-1 border-none rounded-lg focus:ring-1 focus:ring-purple-500"
+              className="bg-slate-100/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 font-medium text-sm px-2 py-1 border border-white/20 dark:border-slate-700/50 rounded-lg focus:ring-1 focus:ring-purple-500"
             />
           </div>
           <button
