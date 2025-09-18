@@ -48,7 +48,7 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
           <button
             onClick={toggleValuesVisibility}
             // 👇 CLASSES ALTERADAS AQUI para o efeito neon
-            className="p-2 text-cyan-400 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+            className="p-2 text-cyan-800 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
             title={valuesVisible ? "Ocultar valores" : "Mostrar valores"}
           >
             {valuesVisible ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
@@ -57,7 +57,7 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
           <button
             onClick={handleThemeCycle}
             // 👇 CLASSES ALTERADAS AQUI para o efeito neon
-            className="p-2 text-cyan-400 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+            className="p-2 text-cyan-800 drop-shadow-[0_0_4px_theme('colors.cyan.400')] rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
             title={themeText}
           >
             <ThemeIcon className="w-6 h-6" />
