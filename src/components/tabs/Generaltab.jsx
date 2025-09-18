@@ -11,7 +11,7 @@ const NavigationIcon = ({ icon: Icon, label, onClick }) => (
   <div className="flex flex-col items-center gap-2">
     <button 
       onClick={onClick} 
-      className="w-16 h-16 bg-white/10 dark:bg-white-800/20 rounded-full shadow-lg border border-white/20 dark:border-slate-700/50 
+      className="w-16 h-16 bg-white/10 dark:bg-slate-800/20 rounded-full shadow-lg border border-white/20 dark:border-slate-700/50 
                  flex items-center justify-center 
                  hover:bg-white/20 dark:hover:bg-slate-700/50 
                  transition-all duration-200 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-purple-400"
@@ -111,7 +111,7 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
           icon={ArrowDown} 
           colorClass="text-red-500" 
           loading={loading} 
-          onClick={() => showModal('novaDespesa', { onSave: handleSaveDespesa })} 
+          onClick={() => onNavigate('novaDespesa')} 
           isClickable={true} 
         />
       </div>
