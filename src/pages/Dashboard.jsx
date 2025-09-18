@@ -7,6 +7,8 @@ import FixasTab from "../components/tabs/FixasTab.jsx";
 import BancosTab from "../components/tabs/BancosTab.jsx";
 import CardDetailPage from "./CardDetailPage";
 import AllExpensesPage from "./AllExpensesPage";
+
+// 1. IMPORTAR O COMPONENTE QUE AGORA É UMA PÁGINA
 import NovaDespesaModal from "../components/modals/NovaDespesaModal";
 
 const getCurrentMonth = () => {
@@ -19,23 +21,12 @@ export default function Dashboard({ onLogout, userRole }) {
   
   const [view, setView] = useState({ name: 'geral', data: null });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
-  
-  // ALTERADO: O estado inicial agora verifica o sessionStorage.
-  // Ele só será 'true' se o item 'hasSeenWelcome' NÃO existir.
-  const [showWelcome, setShowWelcome] = useState(() => !sessionStorage.getItem('hasSeenWelcome'));
+  const [showWelcome, setShowWelcome] = useState(true);
 
-  // ALTERADO: A lógica do useEffect foi aprimorada.
   useEffect(() => {
-    // O timer só é ativado se a tela de boas-vindas precisar ser mostrada.
-    if (showWelcome) {
-      const welcomeTimer = setTimeout(() => {
-        setShowWelcome(false);
-        // ADICIONADO: Marca no sessionStorage que a tela já foi vista nesta sessão.
-        sessionStorage.setItem('hasSeenWelcome', 'true');
-      }, 3000);
-      return () => clearTimeout(welcomeTimer);
-    }
-  }, [showWelcome]); // A dependência agora é 'showWelcome' para maior clareza.
+    const welcomeTimer = setTimeout(() => setShowWelcome(false), 3000);
+    return () => clearTimeout(welcomeTimer);
+  }, []); 
 
   const handleNavigate = (viewName, viewData = null) => {
     setView({ name: viewName, data: viewData });
@@ -47,6 +38,7 @@ export default function Dashboard({ onLogout, userRole }) {
     return (allParcelas || []).filter(p => p.data_parcela?.startsWith(selectedMonth));
   }, [selectedMonth, allParcelas]);
   
+  // 2. ADICIONAR A LÓGICA DE RENDERIZAÇÃO
   const renderCurrentView = () => {
     switch (view.name) {
       case 'geral':
@@ -59,15 +51,19 @@ export default function Dashboard({ onLogout, userRole }) {
         return <AllExpensesPage onBack={handleBackToMain} onNavigate={handleNavigate} selectedMonth={selectedMonth} />;
       case 'cardDetail':
         return <CardDetailPage 
-          banco={view.data} 
-          onBack={() => handleNavigate('bancos')} 
-          onNavigate={handleNavigate}
-          selectedMonth={selectedMonth} 
-        />;
+    banco={view.data} 
+    onBack={() => handleNavigate('bancos')} 
+    onNavigate={handleNavigate} // <-- ESTA LINHA É A SOLUÇÃO
+    selectedMonth={selectedMonth}  />;
+      
+      // 👇 NOVOS CASOS ADICIONADOS AQUI 👇
       case 'novaDespesa':
+        // Renderiza o componente como uma página, passando a função 'onBack'
         return <NovaDespesaModal onBack={handleBackToMain} />;
       case 'editarDespesa':
+        // Renderiza o mesmo componente, mas com os dados da despesa para editar
         return <NovaDespesaModal onBack={handleBackToMain} despesaParaEditar={view.data} />;
+
       default:
         return <GeneralTab onNavigate={handleNavigate} selectedMonth={selectedMonth} parcelasDoMes={parcelasDoMesSelecionado} />;
     }
@@ -105,4 +101,3 @@ export default function Dashboard({ onLogout, userRole }) {
     </div>
   );
 }
-
