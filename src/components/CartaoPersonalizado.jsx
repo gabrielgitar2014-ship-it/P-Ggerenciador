@@ -1,16 +1,20 @@
-// src/components/CartaoPersonalizado.jsx
-
 import React from 'react';
 import { Wifi, Radio } from 'lucide-react';
 import { FaCcMastercard, FaCcVisa } from 'react-icons/fa';
-
-// ✅ Lógica do Elo foi completamente removida daqui.
+import { useVisibility } from '../context/VisibilityContext'; // 1. IMPORTADO O CONTEXTO
 
 const CartaoPersonalizado = ({ banco, saldo, isSelected, onClick }) => {
-  // O objeto de bandeiras agora só tem as que você usa.
+  const { valuesVisible } = useVisibility(); // 2. USANDO O ESTADO DE VISIBILIDADE
+
   const bandeiras = {
     mastercard: <FaCcMastercard size={32} />,
     visa: <FaCcVisa size={32} />,
+  };
+
+  // Função para formatar o valor, mantendo sua lógica original
+  const formatCurrency = (value) => {
+    if (typeof value !== 'number') value = 0;
+    return `R$ ${Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
 
   return (
@@ -24,23 +28,19 @@ const CartaoPersonalizado = ({ banco, saldo, isSelected, onClick }) => {
       
       <div className="relative z-10 flex justify-between items-start">
         <span className="font-semibold">{banco.nome}</span>
-        {/* Mostra o ícone de Wifi apenas se não for PIX */}
         {banco.bandeira !== 'pix' && <Wifi className="h-6 w-6" />}
       </div>
 
       <div className="relative z-10">
         <div className="flex items-start gap-4 mb-1">
-          {/* Mostra o 'chip' apenas se não for PIX */}
           {banco.bandeira !== 'pix' && <Radio className="h-8 w-8 text-yellow-300/80 mt-1" />}
           
           <div className="text-md font-mono tracking-widest leading-tight">
-            {/* Lógica para múltiplos números (continua igual) */}
             {Array.isArray(banco.ultimos_digitos) ? (
               banco.ultimos_digitos.map(digitos => (
                 <div key={digitos}>•••• •••• •••• {digitos}</div>
               ))
             ) : (
-              // Mostra os dígitos apenas se existirem (para o PIX não aparecer "••••")
               banco.ultimos_digitos && <div>•••• •••• •••• {banco.ultimos_digitos}</div>
             )}
           </div>
@@ -50,12 +50,11 @@ const CartaoPersonalizado = ({ banco, saldo, isSelected, onClick }) => {
           <div>
             <p className="text-xs opacity-80">Gastos</p>
             <p className="text-lg font-bold">
-              R$ {Math.abs(saldo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {/* 3. LÓGICA DE VISIBILIDADE APLICADA AQUI */}
+              {valuesVisible ? formatCurrency(saldo) : 'R$ ••••'}
             </p>
           </div>
           <div className="h-8 flex items-center">
-            {/* ✅ CORREÇÃO: Adicionado "|| null" para segurança.
-                Se a bandeira não for encontrada (ex: 'pix'), não renderiza nada e não dá erro. */}
             {bandeiras[banco.bandeira] || null}
           </div>
         </div>
