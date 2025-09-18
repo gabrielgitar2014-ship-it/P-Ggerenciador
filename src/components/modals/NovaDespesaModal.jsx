@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
-import { useFinance } from '../context/FinanceContext';
+import { supabase } from '../../supabaseClient';
+import { useFinance } from '../../context/FinanceContext';
 import { ArrowLeft, CircleDollarSign, PencilLine, CreditCard, Calendar, CalendarClock, Repeat, Hash, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -171,3 +171,4 @@ const getTodayLocalISO_full = () => { const today = new Date(); today.setMinutes
 const getCurrentMonthISO_full = () => { const today = new Date(); const y = today.getFullYear(); const m = String(today.getMonth() + 1).padStart(2, '0'); return `${y}-${m}`; };
 const isStartAfterPurchaseMonth_full = (mesInicioYYYYMMDD, dataCompraYYYYMMDD) => { if (!mesInicioYYYYMMDD || !dataCompraYYYYMMDD) return false; const a = new Date(`${String(mesInicioYYYYMMDD).slice(0,7)}-01T00:00:00`); const b = new Date(`${String(dataCompraYYYYMMDD).slice(0,7)}-01T00:00:00`); return a > b; };
 const buildParcelas_full = ({ despesaId, total, n, startDateYYYYMMDD }) => { const parcelas = []; const per = round2(total / n); const partial = round2(per * (n - 1)); const last = round2(total - partial); const [year, month, day] = startDateYYYYMMDD.split('-').map(Number); const start = new Date(year, month - 1, day); for (let k = 1; k <= n; k++) { const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()); d.setMonth(d.getMonth() + (k - 1)); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = '01'; parcelas.push({ despesa_id: despesaId, numero_parcela: k, amount: k < n ? per : last, data_parcela: `${yyyy}-${mm}-${dd}`, paga: false, }); } return parcelas; };
+
