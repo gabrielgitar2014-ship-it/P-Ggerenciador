@@ -1,13 +1,13 @@
-// src/components/tabs/FixasTab.jsx
-
 import { useState, useMemo } from "react";
 import { useFinance } from "../../context/FinanceContext";
 import { useModal } from "../../context/ModalContext";
+import { useVisibility } from "../../context/VisibilityContext";
+import { ArrowLeft } from "lucide-react";
 
-export default function FixasTab({ selectedMonth }) {
-  // Certifique-se de que 'deleteDespesa' está sendo importado do contexto
+export default function FixasTab({ selectedMonth, onBack }) {
   const { transactions, fetchData, saveFixedExpense, deleteDespesa } = useFinance();
   const { showModal, hideModal } = useModal();
+  const { valuesVisible } = useVisibility();
 
   const [transactionToEdit, setTransactionToEdit] = useState(null);
 
@@ -32,11 +32,8 @@ export default function FixasTab({ selectedMonth }) {
     setTransactionToEdit(null);
     showModal('newFixedExpense', { onSave: handleSave });
   };
-
-  // ✅ --- ESTA É A FUNÇÃO CORRETA ---
-  // Ela recebe o objeto 'expense' completo e abre um modal de confirmação.
+  
   const handleDelete = (expense) => {
-    // Verificação para garantir que a função do contexto existe
     if (!deleteDespesa) {
         console.error("Função deleteDespesa não foi encontrada no contexto!");
         alert("Erro crítico: A função para deletar não está disponível.");
@@ -49,11 +46,10 @@ export default function FixasTab({ selectedMonth }) {
       confirmText: 'Sim, Excluir',
       onConfirm: async () => {
         try {
-          // A lógica de exclusão real acontece aqui, dentro do onConfirm.
           await deleteDespesa(expense);
           console.log("Despesa deletada com sucesso!");
-          fetchData(); // Atualiza a lista após a exclusão
-          hideModal(); // Fecha o modal de confirmação
+          fetchData();
+          hideModal();
         } catch(error) {
             console.error("Erro ao deletar despesa:", error);
             alert(`Erro ao tentar excluir: ${error.message}`);
@@ -66,7 +62,6 @@ export default function FixasTab({ selectedMonth }) {
     showModal('transactionDetail', {
       transaction: expense,
       onEdit: () => handleOpenEditModal(expense),
-      // Aqui, garantimos que a função handleDelete correta (a de cima) seja chamada
       onDelete: () => handleDelete(expense)
     });
   };
@@ -93,22 +88,38 @@ export default function FixasTab({ selectedMonth }) {
   const formatCurrency = (value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-down">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Despesas Fixas</h2>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onBack} 
+            className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-slate-700/50 transition-colors"
+            aria-label="Voltar para a tela principal"
+          >
+            <ArrowLeft className="w-6 h-6 text-slate-800 dark:text-slate-100" />
+          </button>
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Despesas Fixas</h2>
+        </div>
         <button onClick={handleOpenNewModal} className="flex items-center gap-2 bg-gradient-to-br from-red-500 to-rose-600 text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity shadow-md">
           <span className="material-symbols-outlined">add</span>Nova Despesa Fixa
         </button>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-lg shadow-black/5 border border-slate-200 dark:border-slate-700 space-y-3">
+      <div className="
+        p-5 rounded-2xl shadow-lg space-y-3
+        bg-white/30 dark:bg-slate-800/30 
+        backdrop-blur-lg 
+        border border-white/40 dark:border-slate-700/60
+      ">
         <div className="flex justify-between items-center text-lg">
-          <span className="text-slate-600 dark:text-slate-300">Total de Despesas Fixas:</span>
-          <span className="font-bold text-red-600 dark:text-red-400">{formatCurrency(totalFixedExpenses)}</span>
+          <span className="text-slate-700 dark:text-slate-200">Total de Despesas Fixas:</span>
+          <span className="font-bold text-red-600 dark:text-red-400">
+            {valuesVisible ? formatCurrency(totalFixedExpenses) : 'R$ ••••'}
+          </span>
         </div>
         {totalIncome > 0 && (
           <div>
-            <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 mb-1">
+            <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300 mb-1">
               <span>Consumo da Renda</span>
               <span>{percentage.toFixed(2)}%</span>
             </div>
@@ -121,13 +132,27 @@ export default function FixasTab({ selectedMonth }) {
 
       <div className="space-y-3">
         {monthlyFixedExpenses.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-5 rounded-2xl">Nenhuma despesa fixa registrada para este mês.</div>
+          <div className="
+            text-center py-8 text-slate-700 dark:text-slate-200 p-5 rounded-2xl
+            bg-white/30 dark:bg-slate-800/30 
+            backdrop-blur-full
+            border border-white/40 dark:border-slate-700/60
+          ">
+            Nenhuma despesa fixa registrada para este mês.
+          </div>
         ) : (
           monthlyFixedExpenses.map((expense) => (
-            <div key={expense.id} className="flex justify-between items-center p-4 rounded-xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+            <div key={expense.id} className="
+              flex justify-between items-center p-4 rounded-xl
+              bg-white/30 dark:bg-slate-800/30 
+              backdrop-blur-md
+              border border-white/40 dark:border-slate-700/60
+            ">
               <div onClick={() => handleShowDetails(expense)} className="text-left flex-1 min-w-0 cursor-pointer">
-                <p className={`text-slate-700 dark:text-slate-200 truncate ${expense.paid ? "line-through text-slate-400 dark:text-slate-500" : ""}`}>{expense.description}</p>
-                <p className="font-semibold text-red-600 dark:text-red-400 block">{formatCurrency(expense.amount)}</p>
+                <p className={`text-slate-800 dark:text-slate-100 truncate ${expense.paid ? "line-through text-slate-500 dark:text-slate-400" : ""}`}>{expense.description}</p>
+                <p className="font-semibold text-red-600 dark:text-red-400 block">
+                  {valuesVisible ? formatCurrency(expense.amount) : 'R$ ••••'}
+                </p>
               </div>
               <button onClick={() => handleTogglePaidStatus(expense)} className={`ml-4 py-1 px-4 text-sm font-semibold text-white rounded-full transition-colors ${expense.paid ? "bg-gradient-to-br from-green-500 to-emerald-500" : "bg-slate-400 dark:bg-slate-600 hover:bg-slate-500"}`}>
                 {expense.paid ? "Pago" : "Pagar"}
