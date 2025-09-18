@@ -23,7 +23,7 @@ export default function SummaryCard({
     small: {
       padding: 'p-4',
       titleSize: 'text-sm',
-      valueSize: 'text-2xl',
+      valueSize: 'text-lg', // ALTERADO AQUI: de 'text-xl' para 'text-lg'
       iconSize: 'w-6 h-6'
     }
   };
