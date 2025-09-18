@@ -7,7 +7,7 @@ import FixasTab from "../components/tabs/FixasTab.jsx";
 import BancosTab from "../components/tabs/BancosTab.jsx";
 import CardDetailPage from "./CardDetailPage";
 import AllExpensesPage from "./AllExpensesPage";
-import NovaDespesaModal from "../components/NovaDespesaModal";
+import NovaDespesaModal from "../components/modals/NovaDespesaModal";
 
 const getCurrentMonth = () => {
   const now = new Date();
@@ -105,3 +105,4 @@ export default function Dashboard({ onLogout, userRole }) {
     </div>
   );
 }
+
