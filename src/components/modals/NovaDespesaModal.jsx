@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
-import { useFinance } from '../../context/FinanceContext';
-// A IMPORTAÇÃO DO 'paymentMethods' FOI REMOVIDA DAQUI
+import { supabase } from '../supabaseClient';
+import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, CircleDollarSign, PencilLine, CreditCard, Calendar, CalendarClock, Repeat, Hash, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// LISTA DE MÉTODOS DE PAGAMENTO DEFINIDA DIRETAMENTE AQUI
 const METODOS_DE_PAGAMENTO = ['Itaú', 'Bradesco', 'Nubank', 'PIX'];
 
-/* ========================= Helpers (Sem Alterações) ========================= */
+// Funções Helpers (sem alterações)
 const getTodayLocalISO = () => { /* ... */ };
 const getCurrentMonthISO = () => { /* ... */ };
 const toFirstDay = (ym) => (ym && ym.length === 7 ? `${ym}-01` : ym);
@@ -23,7 +21,6 @@ const getInitialState = (despesaParaEditar = null) => {
       return {
         amount: despesaParaEditar.amount ?? '',
         description: despesaParaEditar.description ?? '',
-        // USO DA CONSTANTE LOCAL
         metodo_pagamento: despesaParaEditar.metodo_pagamento ?? METODOS_DE_PAGAMENTO[0],
         data_compra: despesaParaEditar.data_compra ?? getTodayLocalISO(),
         isParcelado: parcelado,
@@ -32,9 +29,7 @@ const getInitialState = (despesaParaEditar = null) => {
       };
     }
     return {
-      amount: '', description: '', 
-      // USO DA CONSTANTE LOCAL
-      metodo_pagamento: METODOS_DE_PAGAMENTO[0],
+      amount: '', description: '', metodo_pagamento: METODOS_DE_PAGAMENTO[0],
       data_compra: getTodayLocalISO(), isParcelado: false,
       qtd_parcelas: '', mes_inicio_cobranca: getCurrentMonthISO(),
     };
@@ -46,10 +41,7 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
   const { fetchData } = useFinance();
   const isEdit = !!despesaParaEditar?.id;
 
-  useEffect(() => {
-    setFormData(getInitialState(despesaParaEditar));
-  }, [despesaParaEditar]);
-
+  useEffect(() => { setFormData(getInitialState(despesaParaEditar)); }, [despesaParaEditar]);
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -58,45 +50,31 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSaving) return;
-
     try {
       setIsSaving(true);
       const is_parcelado = !!formData.isParcelado;
       const qtd_parcelas = is_parcelado ? Math.max(2, parseInt(formData.qtd_parcelas || '2', 10)) : 1;
       const mes_inicio_db = toFirstDay(formData.mes_inicio_cobranca);
       const amountNumber = round2(parseFloat(String(formData.amount).replace(',', '.')) || 0);
-
       if (!amountNumber || amountNumber <= 0) throw new Error('Informe um valor (amount) válido.');
       if (is_parcelado && (!qtd_parcelas || qtd_parcelas < 2)) throw new Error('Informe a quantidade de parcelas (>= 2).');
-
       const dadosParaSalvar = {
-        amount: amountNumber,
-        description: formData.description?.trim(),
-        metodo_pagamento: formData.metodo_pagamento,
-        data_compra: formData.data_compra, 
-        is_parcelado, qtd_parcelas,
-        mes_inicio_cobranca: mes_inicio_db,
+        amount: amountNumber, description: formData.description?.trim(), metodo_pagamento: formData.metodo_pagamento,
+        data_compra: formData.data_compra, is_parcelado, qtd_parcelas, mes_inicio_cobranca: mes_inicio_db,
         inicia_proximo_mes: isStartAfterPurchaseMonth(mes_inicio_db, formData.data_compra),
       };
-
       let savedData;
       if (isEdit) {
         const { data, error } = await supabase.from('despesas').update(dadosParaSalvar).eq('id', despesaParaEditar.id).select().single();
-        if (error) throw error;
-        savedData = data;
+        if (error) throw error; savedData = data;
       } else {
         const { data, error } = await supabase.from('despesas').insert(dadosParaSalvar).select().single();
-        if (error) throw error;
-        savedData = data;
+        if (error) throw error; savedData = data;
       }
-      
       const parcelas = buildParcelas({ despesaId: savedData.id, total: amountNumber, n: qtd_parcelas, startDateYYYYMMDD: mes_inicio_db });
-      if (isEdit) {
-        await supabase.from('parcelas').delete().eq('despesa_id', savedData.id);
-      }
+      if (isEdit) { await supabase.from('parcelas').delete().eq('despesa_id', savedData.id); }
       const { error: insErr } = await supabase.from('parcelas').insert(parcelas);
       if (insErr) throw insErr;
-      
       alert(isEdit ? 'Despesa atualizada com sucesso.' : 'Despesa criada com sucesso.');
       await fetchData();
       onBack();
@@ -108,7 +86,8 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 animate-fade-in-down">
+    // CONTAINER DA PÁGINA AJUSTADO
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 animate-fade-in-down">
         <div className="flex items-center gap-4 mb-6">
             <Button onClick={onBack} variant="ghost" size="icon" aria-label="Voltar">
                 <ArrowLeft className="w-6 h-6" />
@@ -119,8 +98,9 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
         </div>
 
         <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-lg border border-white/40 dark:border-slate-700/60 w-full p-6 md:p-8 rounded-2xl shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* VALOR E DESCRIÇÃO AGORA FICAM EM COLUNA ÚNICA SEMPRE */}
+            <div className="space-y-6">
               <div className="relative">
                 <label htmlFor="amount" className="block text-sm font-semibold mb-1 dark:text-slate-300">Valor (total)</label>
                 <CircleDollarSign className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -132,7 +112,9 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
                 <input id="description" type="text" name="description" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 transition" value={formData.description} onChange={handleInputChange} placeholder="Ex: Compras no mercado" required />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* LAYOUT DE GRID AJUSTADO PARA sm:grid-cols-2 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="relative">
                 <label htmlFor="data_compra" className="block text-sm font-semibold mb-1 dark:text-slate-300">Data da compra</label>
                 <Calendar className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -144,17 +126,18 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
                 <input id="mes_inicio_cobranca" type="month" name="mes_inicio_cobranca" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 transition" value={formData.mes_inicio_cobranca} onChange={handleInputChange} required />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* LAYOUT DE GRID AJUSTADO PARA sm:grid-cols-2 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="relative">
                 <label htmlFor="metodo_pagamento" className="block text-sm font-semibold mb-1 dark:text-slate-300">Método de pagamento</label>
                 <CreditCard className="absolute left-3 top-10 h-5 w-5 text-slate-400 dark:text-slate-500" />
                 <select id="metodo_pagamento" name="metodo_pagamento" className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 transition" value={formData.metodo_pagamento} onChange={handleInputChange}>
-                  {/* USO DA CONSTANTE LOCAL */}
                   {METODOS_DE_PAGAMENTO.map((m) => (<option key={m} value={m}>{m}</option>))}
                 </select>
               </div>
-              <div className="flex flex-col justify-between">
-                <div className="flex items-center space-x-3 mt-1">
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center space-x-3">
                   <input id="isParcelado" type="checkbox" name="isParcelado" checked={!!formData.isParcelado} onChange={handleInputChange} className="h-5 w-5 text-purple-600 border-slate-300 rounded focus:ring-purple-500 cursor-pointer" />
                   <label htmlFor="isParcelado" className="font-semibold dark:text-slate-300 cursor-pointer flex items-center gap-2">
                     <Repeat size={18} /> Parcelado?
@@ -174,12 +157,7 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Salvando...' : (
-                  <>
-                    <Check size={18} className="mr-2" />
-                    {isEdit ? 'Salvar Alterações' : 'Adicionar Despesa'}
-                  </>
-                )}
+                {isSaving ? 'Salvando...' : (<><Check size={18} className="mr-2" />{isEdit ? 'Salvar Alterações' : 'Adicionar Despesa'}</>)}
               </Button>
             </div>
           </form>
@@ -187,3 +165,9 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
     </div>
   );
 }
+
+// Funções Helper completas para referência
+const getTodayLocalISO_full = () => { const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); return today.toISOString().split('T')[0]; };
+const getCurrentMonthISO_full = () => { const today = new Date(); const y = today.getFullYear(); const m = String(today.getMonth() + 1).padStart(2, '0'); return `${y}-${m}`; };
+const isStartAfterPurchaseMonth_full = (mesInicioYYYYMMDD, dataCompraYYYYMMDD) => { if (!mesInicioYYYYMMDD || !dataCompraYYYYMMDD) return false; const a = new Date(`${String(mesInicioYYYYMMDD).slice(0,7)}-01T00:00:00`); const b = new Date(`${String(dataCompraYYYYMMDD).slice(0,7)}-01T00:00:00`); return a > b; };
+const buildParcelas_full = ({ despesaId, total, n, startDateYYYYMMDD }) => { const parcelas = []; const per = round2(total / n); const partial = round2(per * (n - 1)); const last = round2(total - partial); const [year, month, day] = startDateYYYYMMDD.split('-').map(Number); const start = new Date(year, month - 1, day); for (let k = 1; k <= n; k++) { const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()); d.setMonth(d.getMonth() + (k - 1)); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = '01'; parcelas.push({ despesa_id: despesaId, numero_parcela: k, amount: k < n ? per : last, data_parcela: `${yyyy}-${mm}-${dd}`, paga: false, }); } return parcelas; };
