@@ -1,55 +1,62 @@
-import React from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
+import { useVisibility } from '../context/VisibilityContext';
 
-// Função auxiliar para formatação de moeda
-const formatCurrency = (value) => {
-  if (typeof value !== 'number') value = 0;
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-};
-
-const SummaryCard = ({ title, value, icon: Icon, colorClass, loading, onClick, actionIcon: ActionIcon, onActionClick }) => {
+export default function SummaryCard({
+  title,
+  value,
+  icon: Icon,
+  colorClass,
+  loading,
+  onClick,
+  isClickable = true,
+  size = 'default' 
+}) {
+  const { valuesVisible } = useVisibility();
   
-  // Previne que o clique no botão de ação dispare o clique no card inteiro
-  const handleActionClick = (e) => {
-    e.stopPropagation();
-    if (onActionClick) {
-      onActionClick();
+  const sizeStyles = {
+    default: {
+      padding: 'p-5',
+      titleSize: 'text-md',
+      valueSize: 'text-3xl',
+      iconSize: 'w-8 h-8'
+    },
+    small: {
+      padding: 'p-4',
+      titleSize: 'text-sm',
+      valueSize: 'text-2xl',
+      iconSize: 'w-6 h-6'
     }
   };
 
-  const CardContent = () => (
+  const styles = sizeStyles[size] || sizeStyles.default;
+
+  const formatCurrency = (val) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val || 0);
+
+  const content = (
     <>
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-        <Icon className={`h-5 w-5 ${colorClass || 'text-muted-foreground'}`} />
+      <div className="flex justify-between items-start">
+        <span className={`font-semibold ${styles.titleSize} text-slate-700 dark:text-slate-200`}>{title}</span>
+        {Icon && <Icon className={`${styles.iconSize} ${colorClass}`} />}
       </div>
-      <div className="mt-4">
-        {loading ? (
-          <Skeleton className="h-8 w-3/4" />
-        ) : (
-          <p className={`text-3xl font-bold ${colorClass || 'text-foreground'}`}>{formatCurrency(value)}</p>
-        )}
-      </div>
+      <p className={`font-bold ${styles.valueSize} text-slate-900 dark:text-white`}>
+        {valuesVisible ? formatCurrency(value) : 'R$ ••••'}
+      </p>
     </>
   );
 
-  return (
-    <div
-      onClick={onClick}
-      className={`relative bg-white dark:bg-slate-800/50 p-5 rounded-2xl shadow-sm border border-black/5 transition-all
-                  ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1' : ''}`}
-    >
-      {ActionIcon && (
-        <button 
-          onClick={handleActionClick} 
-          className="absolute top-15 right-3 w-8 h-8 rounded-full bg-red-700 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-        >
-          <ActionIcon className="h-4 w-4" />
-        </button>
-      )}
-      <CardContent />
+  const wrapperClasses = `
+    ${styles.padding} rounded-2xl shadow-lg space-y-2
+    bg-white/30 dark:bg-slate-800/30 
+    backdrop-blur-lg 
+    border border-white/40 dark:border-slate-700/60
+    ${onClick && isClickable ? 'cursor-pointer transition-transform hover:scale-105 active:scale-100' : ''}
+  `;
+
+  return loading ? (
+    <Skeleton className={`h-28 rounded-2xl ${size === 'small' && 'h-24'}`} />
+  ) : (
+    <div className={wrapperClasses} onClick={onClick}>
+      {content}
     </div>
   );
-};
-
-export default SummaryCard;
+}
