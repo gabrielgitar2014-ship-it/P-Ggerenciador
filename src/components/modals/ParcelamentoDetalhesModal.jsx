@@ -49,31 +49,29 @@ export default function ParcelamentoDetalhesModal({ open, onClose, despesa }) {
       : Number((Number(d?.amount ?? 0)).toFixed(2));
 
     // Início do cronograma
-    const mi = (d?.mes_inicio_cobranca ?? '').trim(); // YYYY-MM
-    const start = /^\d{4}-\d{2}$/.test(mi)
-      ? new Date(parseInt(mi.slice(0, 4)), parseInt(mi.slice(5, 7)) - 1, 2)
-      : (d?.data_compra ? new Date(d.data_compra) : new Date());
+   const mi = (d?.mes_inicio_cobranca ?? d?.data_compra ?? '').trim();
+    const start = new Date(Date.UTC(parseInt(mi.slice(0, 4)), parseInt(mi.slice(5, 7)) - 1, 2));
 
-    // Cronograma (usa parcelas do banco quando existir)
-    let cron = Array.isArray(d?.parcelas) && d.parcelas.length
-      ? d.parcelas
-          .map((p, i) => ({
-            numero: Number(p?.numero_parcela ?? i + 1),
-            data: p?.data_parcela ? new Date(p.data_parcela) : new Date(start.getFullYear(), start.getMonth() + i, 1),
-            amount: Number(p?.amount ?? valorParcela),
-            paga: String(p?.paga).toLowerCase() === 'true',
-          }))
-          .sort((a, b) => a.numero - b.numero)
-      : Array.from({ length: qtd }, (_, i) => ({
+    let cron;
+    if (Array.isArray(d.parcelas) && d.parcelas.length > 0) {
+      cron = d.parcelas.map(p => ({
+        numero: p.numero_parcela,
+        data: new Date(p.data_parcela + 'T12:00:00Z'),
+        amount: Number(p.amount),
+        paga: String(p.paga).toLowerCase() === 'true'
+      })).sort((a, b) => a.numero - b.numero);
+    } else {
+      cron = Array.from({ length: qtd }, (_, i) => {
+        const parcelaDate = new Date(start.getTime());
+        parcelaDate.setUTCMonth(start.getUTCMonth() + i);
+        return {
           numero: i + 1,
-          data: new Date(start.getFullYear(), start.getMonth() + i, 1),
-          // distribui base, com ajuste de centavos na última
-          amount:
-            i === qtd - 1
-              ? Number((total - Number((total / qtd).toFixed(2)) * (qtd - 1)).toFixed(2))
-              : Number((total / qtd).toFixed(2)),
-          paga: false,
-        }));
+          data: parcelaDate,
+          amount: valorParcela,
+          paga: false
+        };
+      });
+    }
 
     const today = new Date();
     const pagas = cron.filter((x) => x.paga || x.data <= today);
@@ -134,4 +132,5 @@ export default function ParcelamentoDetalhesModal({ open, onClose, despesa }) {
 
   return createPortal(body, document.body);
 }
+
 
