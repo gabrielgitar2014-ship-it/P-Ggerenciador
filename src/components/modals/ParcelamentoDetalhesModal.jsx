@@ -51,7 +51,7 @@ export default function ParcelamentoDetalhesModal({ open, onClose, despesa }) {
     // Início do cronograma
    const mi = (d?.mes_inicio_cobranca ?? d?.data_compra ?? '').trim();
     const start = new Date(Date.UTC(parseInt(mi.slice(0, 4)), parseInt(mi.slice(5, 7)) - 1, 2))
-      : (d?.data_compra ? new Date(d.data_compra) : new Date());
+       (d?.data_compra ? new Date(d.data_compra) : new Date());
 
     // Cronograma (usa parcelas do banco quando existir)
     let cron = Array.isArray(d?.parcelas) && d.parcelas.length
@@ -133,6 +133,7 @@ export default function ParcelamentoDetalhesModal({ open, onClose, despesa }) {
 
   return createPortal(body, document.body);
 }
+
 
 
 
