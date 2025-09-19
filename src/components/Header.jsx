@@ -1,11 +1,13 @@
 import React from 'react';
 import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
-import { Eye, EyeOff, Sun, Moon, Monitor } from 'lucide-react';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { Eye, EyeOff, Sun, Moon, Monitor, Bell, BellOff } from 'lucide-react';
 
 export default function Header({ selectedMonth, setSelectedMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
+  const { isSubscribed, handleSubscribe, handleUnsubscribe, subscriptionError, isLoading } = usePushNotifications();
 
   const handleThemeCycle = () => {
     const themes = ['light', 'dark', 'system'];
@@ -41,13 +43,18 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
     setSelectedMonth(`${newYear}-${newMonth}`);
   };
 
+  const notificationTooltip = isSubscribed 
+    ? "Cancelar notificações"
+    : subscriptionError
+    ? `Erro: ${subscriptionError.message}`
+    : "Ativar notificações";
+
   return (
     <header className={`sticky top-0 z-40 transition-all duration-300`}>
       <div className="flex justify-between items-center p-4 h-20">
         <div className="flex-1 flex items-center justify-start gap-2">
           <button
             onClick={toggleValuesVisibility}
-            // 👇 CLASSES ATUALIZADAS AQUI 👇
             className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
             title={valuesVisible ? "Ocultar valores" : "Mostrar valores"}
           >
@@ -56,11 +63,19 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
           
           <button
             onClick={handleThemeCycle}
-            // 👇 CLASSES ATUALIZADAS AQUI 👇
             className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
             title={themeText}
           >
             <ThemeIcon className="w-6 h-6" />
+          </button>
+
+          <button
+            onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
+            disabled={isLoading || !!subscriptionError}
+            className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title={notificationTooltip}
+          >
+            {isSubscribed ? <BellOff className="w-6 h-6" /> : <Bell className="w-6 h-6" />}
           </button>
         </div>
 
