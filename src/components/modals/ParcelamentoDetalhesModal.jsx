@@ -49,8 +49,10 @@ export default function ParcelamentoDetalhesModal({ open, onClose, despesa }) {
       : Number((Number(d?.amount ?? 0)).toFixed(2));
 
     // Início do cronograma
-    const mi = (d?.mes_inicio_cobranca ?? d?.data_compra ?? '').trim();
-    const start = new Date(Date.UTC(parseInt(mi.slice(0, 4)), parseInt(mi.slice(5, 7)) - 1, 2));
+    const mi = (d?.mes_inicio_cobranca ?? '').trim(); // YYYY-MM
+    const start = /^\d{4}-\d{2}$/.test(mi)
+      ? new Date(parseInt(mi.slice(0, 4)), parseInt(mi.slice(5, 7)) - 1, 1)
+      : (d?.data_compra ? new Date(d.data_compra) : new Date());
 
     // Cronograma (usa parcelas do banco quando existir)
     let cron = Array.isArray(d?.parcelas) && d.parcelas.length
