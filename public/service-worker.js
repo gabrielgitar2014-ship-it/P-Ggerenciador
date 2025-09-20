@@ -1,56 +1,64 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import webpush from 'https://deno.land/x/webpush/mod.ts'
+// Localização: public/service-worker.js
 
-// ... (seu código da função sendWhatsappMessage e a constante NOTIFICATION_PHONE_NUMBER)
+/**
+ * Listener para o evento 'push'. É acionado quando uma notificação chega.
+ */
+self.addEventListener('push', function(event) {
+  // Extrai os dados enviados pela Edge Function (o payload estruturado)
+  const data = event.data.json();
 
-serve(async (req) => {
-  // ... (código para extrair o 'record' e validar)
-  const { record } = await req.json();
+  // --- Lógica para formatar a notificação ---
 
-  // 1. Enviar a notificação do WhatsApp (código que você já tem)
-  // ...
+  // Formata o valor como moeda brasileira (BRL) para melhor visualização
+  const valorFormatado = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(data.valor);
 
-  // 2. Enviar a Notificação Push
-  try {
-    const userId = record.user_id; // Assumindo que você salva o user_id na despesa
-    if (!userId) throw new Error("ID do usuário não encontrado na despesa");
-    
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+  // Formata a data para o padrão brasileiro (dd/mm/aaaa)
+  const dataFormatada = new Date(data.data_compra).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
 
-    // Busca a assinatura do usuário no banco
-    const { data: subData, error: subError } = await supabaseAdmin
-      .from('push_subscriptions')
-      .select('subscription_details')
-      .eq('user_id', userId)
-      .single();
+  // Monta o título e o corpo da notificação usando os dados formatados
+  const title = `Nova Despesa: ${data.descricao}`;
 
-    if (subError || !subData) throw new Error("Assinatura de notificação não encontrada para o usuário.");
+  // O caractere '\n' cria uma quebra de linha no corpo da notificação
+  const body = `Valor: ${valorFormatado}\n` +
+               `Data: ${dataFormatada}\n` +
+               `Pagamento: ${data.metodo_pagamento}`;
 
-    const payload = JSON.stringify({
-      title: 'Nova Despesa Registrada!',
-      body: `${record.description} - R$ ${record.amount.toFixed(2)}`,
-    });
+  // Opções da notificação (ícone, etc.)
+  const options = {
+    body: body,
+    icon: '/icons/icon-192x192.png', // Caminho para o ícone do seu app na pasta 'public'
+    badge: '/icons/badge-72x72.png'  // Ícone menor para a barra de status (opcional)
+  };
 
-    await webpush.sendNotification(
-      subData.subscription_details,
-      payload,
-      {
-        vapidDetails: {
-          subject: 'mailto:seu-email@exemplo.com',
-          publicKey: Deno.env.get('VAPID_PUBLIC_KEY'),
-          privateKey: Deno.env.get('VAPID_PRIVATE_KEY'),
-        },
+  // Pede ao navegador para exibir a notificação.
+  // event.waitUntil garante que o service worker não seja encerrado antes da notificação ser exibida.
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/**
+ * Listener para o evento 'notificationclick'. É acionado quando o usuário clica na notificação.
+ */
+self.addEventListener('notificationclick', function(event) {
+  // Fecha a notificação
+  event.notification.close();
+
+  // Procura por uma janela/aba aberta do seu app e a foca.
+  // Se não encontrar, abre uma nova aba na página inicial.
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientsArr => {
+      const hadWindowToFocus = clientsArr.length > 0;
+      if (hadWindowToFocus) {
+        clientsArr[0].focus();
+      } else {
+        clients.openWindow('/');
       }
-    );
-    console.log("Notificação Push enviada com sucesso.");
-
-  } catch (pushError) {
-    console.error("Erro ao enviar notificação push:", pushError.message);
-  }
-
-  // Resposta final
-  return new Response(JSON.stringify({ success: true, message: "Operação concluída." }), { status: 200 });
-})
+    })
+  );
+});
