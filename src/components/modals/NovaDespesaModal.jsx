@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { motion } from 'framer-motion';
+import { getOrSetDeviceId } from '../../utils/deviceId'; // ✅ ADICIONADO
 
 const METODOS_DE_PAGAMENTO = ['Itaú', 'Bradesco', 'Nubank', 'PIX'];
 
@@ -118,6 +119,9 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
       if (!amountNumber || amountNumber <= 0) throw new Error('Informe um valor (amount) válido.');
       if (is_parcelado && (!qtd_parcelas || qtd_parcelas < 2)) throw new Error('Informe a quantidade de parcelas (>= 2).');
 
+      // ✅ ADICIONADO: Pega o ID anônimo do dispositivo
+      const deviceId = getOrSetDeviceId();
+
       const dadosParaSalvar = {
         amount: amountNumber,
         description: formData.description?.trim(),
@@ -126,6 +130,7 @@ export default function NovaDespesaModal({ onBack, despesaParaEditar }) {
         is_parcelado, qtd_parcelas,
         mes_inicio_cobranca: mes_inicio_db,
         inicia_proximo_mes: isStartAfterPurchaseMonth(mes_inicio_db, formData.data_compra),
+        device_id: deviceId, // ✅ ADICIONADO: Inclui o ID ao salvar a despesa
       };
 
       let savedData;
