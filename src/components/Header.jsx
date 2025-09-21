@@ -1,35 +1,21 @@
 // src/components/Header.jsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
-import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useFinance } from '../context/financecontext';
 import {
-  Eye,
-  EyeOff,
-  Sun,
-  Moon,
-  Monitor,
-  Bell,
-  BellOff,
-  EllipsisVertical,
+  Eye, EyeOff, Sun, Moon, Monitor, EllipsisVertical, RefreshCw, CheckCircle2,
 } from 'lucide-react';
 
 export default function Header({ selectedMonth, setSelectedMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
-  const {
-    isSubscribed,
-    handleSubscribe,
-    handleUnsubscribe,
-    subscriptionError,
-    isLoading,
-  } = usePushNotifications();
+  const { isSyncing, lastSyncedAt, syncNow } = useFinance();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
 
-  // Fecha o menu clicando fora
   useEffect(() => {
     function onClickOutside(e) {
       if (
@@ -59,7 +45,6 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
     const nextTheme = themes[(currentIndex + 1) % themes.length];
     setTheme(nextTheme);
   };
-
   const ThemeInfo = () => {
     if (theme === 'light') return { Icon: Moon, text: 'Tema escuro' };
     if (theme === 'dark') return { Icon: Sun, text: 'Tema claro' };
@@ -68,33 +53,33 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
   const { Icon: ThemeIcon, text: themeText } = ThemeInfo();
 
   const handleMonthChange = (e) => setSelectedMonth(e.target.value);
-
   const handlePreviousMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const newDate = new Date(year, month - 2, 1);
-    const newYear = newDate.getFullYear();
-    const newMonth = String(newDate.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newYear}-${newMonth}`);
+    setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
-
   const handleNextMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const newDate = new Date(year, month, 1);
-    const newYear = newDate.getFullYear();
-    const newMonth = String(newDate.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newYear}-${newMonth}`);
+    setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const notificationTooltip = isSubscribed
-    ? 'Cancelar notificações'
-    : subscriptionError
-    ? `Erro: ${subscriptionError.message}`
-    : 'Ativar notificações';
+  const lastSyncText = useMemo(() => {
+    if (!lastSyncedAt) return 'Nunca';
+    try {
+      const d = typeof lastSyncedAt === 'string' ? new Date(lastSyncedAt) : lastSyncedAt;
+      return new Intl.DateTimeFormat('pt-BR', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      }).format(d);
+    } catch {
+      return String(lastSyncedAt);
+    }
+  }, [lastSyncedAt]);
 
   return (
-    <header className="sticky top-0 z-40 transition-all duration-300 bg-white/70 dark:bg-slate-900/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-slate-900/40 border-b border-black/5 dark:border-white/5">
+    <header className="sticky top-0 z-40 transition-all duration-300 bg-white/70 dark:bg-slate-900/60 backdrop-blur border-b border-black/5 dark:border-white/5">
       <div className="flex items-center justify-between px-3 py-3 h-16">
-        {/* Esquerda: botão de menu (três pontinhos) */}
+        {/* Esquerda: menu (três pontinhos) */}
         <div className="relative flex-1 flex items-center justify-start">
           <button
             ref={btnRef}
@@ -107,7 +92,6 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
             <EllipsisVertical className="w-6 h-6" />
           </button>
 
-          {/* Dropdown menu */}
           {menuOpen && (
             <div
               ref={menuRef}
@@ -135,18 +119,14 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
               />
 
               <MenuItem
-                disabled={isLoading || !!subscriptionError}
-                onClick={() => {
-                  if (isSubscribed) {
-                    handleUnsubscribe();
-                  } else {
-                    handleSubscribe();
-                  }
+                onClick={async () => {
+                  await syncNow();
                   setMenuOpen(false);
                 }}
-                icon={isSubscribed ? BellOff : Bell}
-                label={isSubscribed ? 'Desativar notificações' : 'Ativar notificações'}
-                helper={subscriptionError ? `Erro: ${subscriptionError.message}` : 'Receba alertas do app'}
+                icon={isSyncing ? RefreshCw : CheckCircle2}
+                label={isSyncing ? 'Sincronizando...' : 'Sincronizar agora'}
+                helper={`Última sync: ${lastSyncText}`}
+                spinning={isSyncing}
               />
             </div>
           )}
@@ -189,8 +169,7 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
   );
 }
 
-/** Item do menu (linha com ícone, título e helper) */
-function MenuItem({ icon: Icon, label, helper, onClick, disabled }) {
+function MenuItem({ icon: Icon, label, helper, onClick, spinning, disabled }) {
   return (
     <button
       role="menuitem"
@@ -201,17 +180,11 @@ function MenuItem({ icon: Icon, label, helper, onClick, disabled }) {
       }`}
     >
       <div className="mt-0.5">
-        <Icon className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+        <Icon className={`w-5 h-5 text-slate-700 dark:text-slate-200 ${spinning ? 'animate-spin' : ''}`} />
       </div>
       <div className="flex flex-col">
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-          {label}
-        </span>
-        {helper && (
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            {helper}
-          </span>
-        )}
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+        {helper && <span className="text-xs text-slate-500 dark:text-slate-400">{helper}</span>}
       </div>
     </button>
   );
