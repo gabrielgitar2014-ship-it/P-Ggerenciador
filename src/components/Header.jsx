@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
-import { useFinance } from '../context/financecontext';
+import { useFinance } from '../context/FinanceContext';
 import {
   Eye, EyeOff, Sun, Moon, Monitor, EllipsisVertical, RefreshCw, CheckCircle2,
 } from 'lucide-react';
