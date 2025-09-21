@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react'; // Importa o useState
 import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
-import { usePushNotifications } from '../hooks/usePushNotifications';
-import { Eye, EyeOff, Sun, Moon, Monitor, Bell, BellOff } from 'lucide-react';
+import { useFinance } from '../context/FinanceContext'; // 1. Importa o contexto de finanças
+import { Eye, EyeOff, Sun, Moon, Monitor, RefreshCw } from 'lucide-react'; // 2. Adiciona o ícone RefreshCw
 
 export default function Header({ selectedMonth, setSelectedMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
-  const { isSubscribed, handleSubscribe, handleUnsubscribe, subscriptionError, isLoading } = usePushNotifications();
+  const { fetchData } = useFinance(); // 3. Pega a função fetchData do contexto
+  const [isSyncing, setIsSyncing] = useState(false); // 4. Estado para controlar a animação e desabilitar o botão
 
   const handleThemeCycle = () => {
     const themes = ['light', 'dark', 'system'];
@@ -43,11 +44,21 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
     setSelectedMonth(`${newYear}-${newMonth}`);
   };
 
-  const notificationTooltip = isSubscribed 
-    ? "Cancelar notificações"
-    : subscriptionError
-    ? `Erro: ${subscriptionError.message}`
-    : "Ativar notificações";
+  // 5. Função para lidar com o clique no botão de sincronizar
+  const handleSync = async () => {
+    if (isSyncing) return; // Previne múltiplos cliques
+    setIsSyncing(true);
+    try {
+      await fetchData();
+      // Opcional: Adicionar uma notificação de sucesso (toast) aqui
+    } catch (error) {
+      console.error("Erro ao sincronizar dados:", error);
+      // Opcional: Adicionar uma notificação de erro (toast) aqui
+    } finally {
+      // Garante que a animação pare mesmo se ocorrer um erro
+      setTimeout(() => setIsSyncing(false), 500); // Pequeno delay para a animação completar
+    }
+  };
 
   return (
     <header className={`sticky top-0 z-40 transition-all duration-300`}>
@@ -68,20 +79,24 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
           >
             <ThemeIcon className="w-6 h-6" />
           </button>
-
+          
+          {/* 6. NOVO BOTÃO DE SINCRONIZAÇÃO */}
           <button
-            onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-            disabled={isLoading || !!subscriptionError}
+            onClick={handleSync}
+            disabled={isSyncing}
             className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={notificationTooltip}
+            title="Sincronizar dados"
           >
-            {isSubscribed ? <BellOff className="w-6 h-6" /> : <Bell className="w-6 h-6" />}
+            <RefreshCw className={`w-6 h-6 ${isSyncing ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         <div className="flex-1 flex items-center justify-center">
+          {/* Espaço central */}
         </div>
+        
         <div className="flex-1 flex items-center justify-end gap-2">
+          {/* Controles de Mês */}
           <button
             onClick={handlePreviousMonth}
             className="p-2 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
