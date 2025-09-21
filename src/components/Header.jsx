@@ -1,14 +1,57 @@
 // src/components/Header.jsx
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { Eye, EyeOff, Sun, Moon, Monitor, Bell, BellOff } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Sun,
+  Moon,
+  Monitor,
+  Bell,
+  BellOff,
+  EllipsisVertical,
+} from 'lucide-react';
 
 export default function Header({ selectedMonth, setSelectedMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
-  const { isSubscribed, handleSubscribe, handleUnsubscribe, subscriptionError, isLoading } = usePushNotifications();
+  const {
+    isSubscribed,
+    handleSubscribe,
+    handleUnsubscribe,
+    subscriptionError,
+    isLoading,
+  } = usePushNotifications();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const btnRef = useRef(null);
+
+  // Fecha o menu clicando fora
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (
+        menuOpen &&
+        menuRef.current &&
+        !menuRef.current.contains(e.target) &&
+        btnRef.current &&
+        !btnRef.current.contains(e.target)
+      ) {
+        setMenuOpen(false);
+      }
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   const handleThemeCycle = () => {
     const themes = ['light', 'dark', 'system'];
@@ -18,15 +61,13 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
   };
 
   const ThemeInfo = () => {
-    if (theme === 'light') return { Icon: Moon, text: 'Mudar para Tema Escuro' };
-    if (theme === 'dark') return { Icon: Sun, text: 'Mudar para Tema Claro' };
-    return { Icon: Monitor, text: 'Mudar para Tema do Sistema' };
+    if (theme === 'light') return { Icon: Moon, text: 'Tema escuro' };
+    if (theme === 'dark') return { Icon: Sun, text: 'Tema claro' };
+    return { Icon: Monitor, text: 'Tema do sistema' };
   };
   const { Icon: ThemeIcon, text: themeText } = ThemeInfo();
 
-  const handleMonthChange = (e) => {
-    setSelectedMonth(e.target.value);
-  };
+  const handleMonthChange = (e) => setSelectedMonth(e.target.value);
 
   const handlePreviousMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -51,63 +92,93 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
     : 'Ativar notificações';
 
   return (
-    <header className="sticky top-0 z-40 transition-all duration-300">
-      <div className="flex justify-between items-center p-4 h-20">
-        {/* Lado esquerdo: botões utilitários */}
-        <div className="flex-1 flex items-center justify-start gap-2">
+    <header className="sticky top-0 z-40 transition-all duration-300 bg-white/70 dark:bg-slate-900/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-slate-900/40 border-b border-black/5 dark:border-white/5">
+      <div className="flex items-center justify-between px-3 py-3 h-16">
+        {/* Esquerda: botão de menu (três pontinhos) */}
+        <div className="relative flex-1 flex items-center justify-start">
           <button
-            onClick={toggleValuesVisibility}
-            className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-            title={valuesVisible ? 'Ocultar valores' : 'Mostrar valores'}
+            ref={btnRef}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="p-2 rounded-full text-slate-700 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 active:scale-95 transition"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Menu"
           >
-            {valuesVisible ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
+            <EllipsisVertical className="w-6 h-6" />
           </button>
 
-          <button
-            onClick={handleThemeCycle}
-            className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-            title={themeText}
-          >
-            <ThemeIcon className="w-6 h-6" />
-          </button>
+          {/* Dropdown menu */}
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              role="menu"
+              className="absolute left-0 top-12 w-64 rounded-xl border border-black/10 dark:border-white/10 shadow-xl bg-white dark:bg-slate-800 overflow-hidden"
+            >
+              <MenuItem
+                onClick={() => {
+                  toggleValuesVisibility();
+                  setMenuOpen(false);
+                }}
+                icon={valuesVisible ? EyeOff : Eye}
+                label={valuesVisible ? 'Ocultar valores' : 'Mostrar valores'}
+                helper="Esconde/mostra números sensíveis"
+              />
 
-          <button
-            onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-            disabled={isLoading || !!subscriptionError}
-            className="p-2 rounded-full text-slate-600 dark:text-cyan-400 dark:drop-shadow-[0_0_4px_theme('colors.cyan.400')] hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={notificationTooltip}
-          >
-            {isSubscribed ? <BellOff className="w-6 h-6" /> : <Bell className="w-6 h-6" />}
-          </button>
+              <MenuItem
+                onClick={() => {
+                  handleThemeCycle();
+                  setMenuOpen(false);
+                }}
+                icon={ThemeIcon}
+                label={themeText}
+                helper="Altera aparência do app"
+              />
+
+              <MenuItem
+                disabled={isLoading || !!subscriptionError}
+                onClick={() => {
+                  if (isSubscribed) {
+                    handleUnsubscribe();
+                  } else {
+                    handleSubscribe();
+                  }
+                  setMenuOpen(false);
+                }}
+                icon={isSubscribed ? BellOff : Bell}
+                label={isSubscribed ? 'Desativar notificações' : 'Ativar notificações'}
+                helper={subscriptionError ? `Erro: ${subscriptionError.message}` : 'Receba alertas do app'}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Centro: título Rendify */}
+        {/* Centro: título */}
         <div className="flex-1 flex items-center justify-center pointer-events-none select-none">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-fuchsia-500 drop-shadow">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-fuchsia-500 drop-shadow">
             Rendify
           </h1>
         </div>
 
-        {/* Lado direito: navegação de mês */}
-        <div className="flex-1 flex items-center justify-end gap-2">
+        {/* Direita: navegação de mês */}
+        <div className="flex-1 flex items-center justify-end gap-1 sm:gap-2">
           <button
             onClick={handlePreviousMonth}
-            className="p-2 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="p-2 text-slate-700 dark:text-slate-200 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
             title="Mês Anterior"
           >
             <span className="material-symbols-outlined">chevron_left</span>
           </button>
-          <div className="flex-shrink-0">
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={handleMonthChange}
-              className="bg-slate-100/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 font-medium text-sm px-2 py-1 border border-white/20 dark:border-slate-700/50 rounded-lg focus:ring-1 focus:ring-purple-500"
-            />
-          </div>
+
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={handleMonthChange}
+            className="w-[9.5rem] sm:w-auto bg-slate-100/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 font-medium text-sm px-2 py-1 border border-black/10 dark:border-white/10 rounded-lg focus:ring-1 focus:ring-purple-500"
+          />
+
           <button
             onClick={handleNextMonth}
-            className="p-2 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="p-2 text-slate-700 dark:text-slate-200 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
             title="Próximo Mês"
           >
             <span className="material-symbols-outlined">chevron_right</span>
@@ -115,5 +186,33 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Item do menu (linha com ícone, título e helper) */
+function MenuItem({ icon: Icon, label, helper, onClick, disabled }) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-slate-100 dark:hover:bg-slate-700 transition ${
+        disabled ? 'opacity-60 cursor-not-allowed' : ''
+      }`}
+    >
+      <div className="mt-0.5">
+        <Icon className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          {label}
+        </span>
+        {helper && (
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {helper}
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
