@@ -1,5 +1,5 @@
 // FinanceContext.jsx
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 
 const FinanceContext = createContext();
@@ -11,9 +11,11 @@ export function FinanceProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [allParcelas, setAllParcelas] = useState([]);
 
-  // ========================
-  // FETCH DATA (com logs)
-  // ========================
+  // --- NOVO: estado de sincronização ---
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const syncingRef = useRef(false);
+
   const fetchData = useCallback(async () => {
     console.groupCollapsed('[FinanceContext.fetchData] start');
     setLoading(true);
@@ -43,7 +45,6 @@ export function FinanceProvider({ children }) {
         { id: 4, nome: 'PIX', bandeira: 'pix', cor: 'bg-emerald-500', ultimos_digitos: '', tipo: 'Transferência' },
       ];
 
-      // Junta transactions (fixas/variáveis já normalizadas) com despesas "principais" (se você ainda usa essa tabela para variáveis)
       const todasTransacoes = [
         ...(transactionsRes.data || []),
         ...(despesasRes.data || []),
@@ -66,9 +67,67 @@ export function FinanceProvider({ children }) {
     fetchData();
   }, [fetchData]);
 
-  // =================================================
-  // SAVE FIXED EXPENSE (INSERT/UPDATE) com LOGS
-  // =================================================
+  // --- NOVO: função de sincronização ---
+  const syncNow = useCallback(async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    setIsSyncing(true);
+    setError(null);
+    try {
+      // 1) Tenta Edge Function (altere o nome se o seu for outro)
+      try {
+        const { error: fnError } = await supabase.functions.invoke('atualizar-cache-despesas', { body: {} });
+        if (fnError) throw fnError;
+      } catch (e) {
+        console.warn('[FinanceContext.syncNow] Edge Function falhou ou não existe, usando fallback:', e?.message);
+        // 2) Fallback: ping simples no banco
+        const { error: dbErr } = await supabase.from('despesas').select('id', { count: 'exact', head: true }).limit(1);
+        if (dbErr) throw dbErr;
+      }
+
+      await fetchData();
+      setLastSyncedAt(new Date());
+      console.info('[FinanceContext.syncNow] sincronizado com sucesso.');
+    } catch (e) {
+      console.error('[FinanceContext.syncNow] ERRO:', e);
+      setError(e?.message || String(e));
+    } finally {
+      setIsSyncing(false);
+      syncingRef.current = false;
+    }
+  }, [fetchData]);
+
+  // --- RESTO DO SEU CÓDIGO (saveIncome, saveFixedExpense, deleteDespesa, getSaldoPorBanco) ---
+  const saveIncome = async (incomeData) => {
+    try {
+      const isEdit = !!incomeData.id;
+      let result;
+
+      if (isEdit) {
+        const { data, error } = await supabase.from('transactions')
+          .update(incomeData)
+          .eq('id', incomeData.id)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      } else {
+        const { data, error } = await supabase.from('transactions')
+          .insert({ ...incomeData, type: 'income' })
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      }
+
+      await fetchData();
+      return result;
+    } catch (err) {
+      console.error("Erro ao salvar renda:", err);
+      throw err;
+    }
+  };
+
   const saveFixedExpense = async (expenseData) => {
     console.groupCollapsed('[FinanceContext.saveFixedExpense] start');
     try {
@@ -76,7 +135,6 @@ export function FinanceProvider({ children }) {
 
       const isEdit = !!expenseData?.id;
 
-      // Normalizações
       const amount = Number(
         typeof expenseData?.amount === 'string'
           ? expenseData.amount.replace(',', '.')
@@ -84,8 +142,8 @@ export function FinanceProvider({ children }) {
       );
       const metodo_pagamento = expenseData?.metodo_pagamento ?? expenseData?.bank ?? null;
       const due = Number(expenseData?.due_date ?? expenseData?.dueDate);
-      const start = expenseData?.startDate; // 'YYYY-MM' vindo do modal
-      const dateFromPayload = expenseData?.date; // pode vir completo 'YYYY-MM-DD'
+      const start = expenseData?.startDate;
+      const dateFromPayload = expenseData?.date;
 
       const parseYM = (s) => (s ? s.split('-').slice(0, 2).map(Number) : []);
       const [startY, startM] = start ? parseYM(start) : (dateFromPayload ? parseYM(dateFromPayload) : []);
@@ -95,7 +153,6 @@ export function FinanceProvider({ children }) {
           : null
       );
 
-      // Validação amigável (avisa no console, mas não bloqueia)
       const issues = [];
       if (!expenseData?.description) issues.push('description vazio');
       if (!metodo_pagamento) issues.push('metodo_pagamento vazio');
@@ -112,8 +169,8 @@ export function FinanceProvider({ children }) {
         return {
           description: (expenseData.description || '').trim(),
           amount,
-          metodo_pagamento,  // <- checar se a coluna existe na tabela 'transactions'
-          due_date: due,     // <- idem
+          metodo_pagamento,
+          due_date: due,
           date: dt,
           type: 'expense',
           is_fixed: true,
@@ -128,11 +185,10 @@ export function FinanceProvider({ children }) {
       };
 
       if (isEdit) {
-        // UPDATE
         const [yEdit, mEdit] = safeDate ? parseYM(safeDate) : [startY, startM];
         const row = {
           ...toRow(yEdit, mEdit),
-          date: safeDate, // respeita a data completa se veio no payload
+          date: safeDate,
         };
 
         console.info('[FinanceContext.saveFixedExpense] UPDATE row:');
@@ -157,7 +213,6 @@ export function FinanceProvider({ children }) {
         return { ok: true, data };
       }
 
-      // INSERT
       const recurrenceType = expenseData?.recurrence?.type || 'single';
       const installments = expenseData?.recurrence?.installments ?? 1;
 
@@ -169,7 +224,6 @@ export function FinanceProvider({ children }) {
             rows.push(toRow(y, m));
           }
         } else {
-          // 'single' ou 'infinite' → só o mês inicial
           rows = [toRow(startY, startM)];
         }
       } else if (safeDate) {
@@ -214,9 +268,6 @@ export function FinanceProvider({ children }) {
     }
   };
 
-  // ============================================
-  // DELETE (variável/fixa) com logs detalhados
-  // ============================================
   const deleteDespesa = async (despesaObject) => {
     console.groupCollapsed('[FinanceContext.deleteDespesa] start');
     console.log('[FinanceContext] Função deleteDespesa chamada com o objeto:', despesaObject);
@@ -281,51 +332,6 @@ export function FinanceProvider({ children }) {
     }
   };
 
-  // ============================================
-  // DELETE INCOME (renda)
-  // ============================================
-  const deleteIncome = async (incomeId) => {
-    console.groupCollapsed('[FinanceContext.deleteIncome] start');
-    
-    if (!incomeId) {
-      console.error('[FinanceContext.deleteIncome] ERRO: ID da renda é inválido.', incomeId);
-      alert('Erro: ID da renda inválido.');
-      console.groupEnd();
-      return { ok: false, error: 'ID inválido' };
-    }
-
-    try {
-      console.log(`[FinanceContext.deleteIncome] Deletando renda da tabela 'transactions' com id: ${incomeId}`);
-      
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', incomeId)
-        .eq('type', 'income'); // Garante que estamos deletando apenas uma renda
-
-      if (error) {
-        console.error('[FinanceContext.deleteIncome] ERRO do Supabase:', error);
-        alert(`Erro do Supabase: ${error.message}`);
-        throw error;
-      }
-      
-      console.log('[FinanceContext.deleteIncome] Renda deletada com sucesso.');
-      return { ok: true };
-
-    } catch (err) {
-      console.error('[FinanceContext.deleteIncome] FALHA:', err);
-      setError(err?.message || String(err));
-      return { ok: false, error: err };
-    } finally {
-      console.debug('[FinanceContext.deleteIncome] refetch após delete…');
-      await fetchData();
-      console.groupEnd();
-    }
-  };
-
-  // =====================================================
-  // SALDO POR BANCO (usa transactions + parcelas) + LOGS
-  // =====================================================
   const getSaldoPorBanco = (banco, selectedMonth) => {
     const despesasFixasDoMes = transactions.filter(
       (t) =>
@@ -350,7 +356,7 @@ export function FinanceProvider({ children }) {
     return totalFixo + totalVariavel;
   };
 
-  const value = {
+  const value = useMemo(() => ({
     loading,
     error,
     setError,
@@ -361,8 +367,17 @@ export function FinanceProvider({ children }) {
     getSaldoPorBanco,
     deleteDespesa,
     saveFixedExpense,
-    deleteIncome, // <-- CORREÇÃO APLICADA
-  };
+    saveIncome,
+
+    // --- NOVO: expõe sincronização ---
+    isSyncing,
+    lastSyncedAt,
+    syncNow,
+  }), [
+    loading, error, fetchData, transactions, allParcelas, bancos,
+    saveFixedExpense, saveIncome, deleteDespesa, getSaldoPorBanco,
+    isSyncing, lastSyncedAt, syncNow,
+  ]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
