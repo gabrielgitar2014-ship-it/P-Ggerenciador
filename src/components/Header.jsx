@@ -134,8 +134,8 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
 
         {/* Centro: título */}
         <div className="flex-1 flex items-center justify-center pointer-events-none select-none">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-fuchsia-500 drop-shadow">
-            Rendify
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-fuchsia-500 drop-shadow">
+           GenFinance
           </h1>
         </div>
 
