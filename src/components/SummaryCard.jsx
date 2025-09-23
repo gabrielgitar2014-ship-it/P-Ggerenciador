@@ -23,7 +23,7 @@ export default function SummaryCard({
 
   const sizeStyles = {
     default: {
-      padding: "p-5",
+      padding: "p-3",
       titleSize: "text-md",
       valueSize: "text-3xl",      // base
       valueSizeEmphasis: "text-5xl", // ênfase
@@ -31,7 +31,7 @@ export default function SummaryCard({
       skeletonH: "h-28",
     },
     small: {
-      padding: "p-4",
+      padding: "p-3",
       titleSize: "text-sm",
       valueSize: "text-lg",        // base
       valueSizeEmphasis: "text-3xl", // ênfase
@@ -135,3 +135,4 @@ SummaryCard.propTypes = {
   valueEmphasis: PropTypes.bool,
   valueClassName: PropTypes.string,
 };
+
