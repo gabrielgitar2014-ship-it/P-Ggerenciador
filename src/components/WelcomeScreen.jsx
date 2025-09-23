@@ -15,26 +15,17 @@ export default function WelcomeScreen() {
    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
       <div className="text-center">
         <h1
-          className="text-5xl md:text-7xl text-white font-extrabold tracking-tight drop-shadow-lg animate-fade-in-down"
-          style={{ fontFamily: "'Poppins', sans-serif" }}
-        >
+  className="text-5xl md:text-7xl text-white font-extrabold tracking-tight animate-fade-in-down [-webkit-box-reflect:below_-7px_linear-gradient(to_bottom,transparent_10%,rgba(255,255,255,0.2))]"
+  style={{ fontFamily: "'Poppins', sans-serif" }}
+>
+        
          GenFinance
         </h1>
 
-        <p
-          className="text-white/90 text-lg md:text-xl mt-3 animate-fade-in-up"
-          style={{ fontFamily: "'Poppins', sans-serif" }}
-        >
-          Bem-vindo — organizando suas finanças...
-        </p>
-      </div>
-
-      {/* Footer de autoria */}
-      <div className="mt-10 text-white/70 text-sm md:text-base animate-fade-in-up">
-        Feito por: Gabriel Ricco
       </div>
     </div>
   );
 }
+
 
 
