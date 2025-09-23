@@ -1,7 +1,7 @@
 {
-  "name": "GenFinace",
-  "short_name": "GenFinace",
-  "description": "GenFinace — seu gerenciador financeiro simples e poderoso.",
+  "name": "GenFinance",
+  "short_name": "GenFinance",
+  "description": "GenFinance — seu gerenciador financeiro simples e poderoso.",
   "start_url": "/?utm_source=pwa",
   "scope": "/",
   "display": "standalone",
@@ -12,4 +12,5 @@
     { "src": "/pwa-512x512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
+
 
