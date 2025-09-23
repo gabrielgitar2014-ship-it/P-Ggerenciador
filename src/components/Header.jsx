@@ -146,14 +146,14 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
             className="p-2 text-slate-700 dark:text-slate-200 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
             title="Mês Anterior"
           >
-            <span className="material-symbols-outlined">chevron_left</span>
+           
           </button>
 
           <input
             type="month"
             value={selectedMonth}
             onChange={handleMonthChange}
-            className="w-[9.5rem] sm:w-auto bg-slate-100/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 font-medium text-sm px-2 py-1 border border-black/10 dark:border-white/10 rounded-lg focus:ring-1 focus:ring-purple-500"
+            className="w-[9.5rem] sm:w-auto bg-slate-100/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 font-medium text-xs px-1.5 py-0.5 border border-black/10 dark:border-white/10 rounded-lg focus:ring-1 focus:ring-purple-500"
           />
 
           <button
@@ -161,7 +161,7 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
             className="p-2 text-slate-700 dark:text-slate-200 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors"
             title="Próximo Mês"
           >
-            <span className="material-symbols-outlined">chevron_right</span>
+            
           </button>
         </div>
       </div>
