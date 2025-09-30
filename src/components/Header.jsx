@@ -4,7 +4,7 @@ import { useVisibility } from '../context/VisibilityContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFinance } from '../context/FinanceContext';
 import {
-  Eye, EyeOff, Sun, Moon, Monitor, EllipsisVertical, RefreshCw, CheckCircle2,
+  Eye, EyeOff, Sun, Moon, Monitor, Settings, RefreshCw, CheckCircle2, // <-- Alterado aqui
 } from 'lucide-react';
 
 export default function Header({ selectedMonth, setSelectedMonth }) {
@@ -79,7 +79,7 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
   return (
     <header className="sticky top-0 z-40 transition-all duration-300 bg-white/70 dark:bg-slate-900/60 backdrop-blur border-b border-black/5 dark:border-white/5">
       <div className="flex items-center justify-between px-3 py-3 h-16">
-        {/* Esquerda: menu (três pontinhos) */}
+        {/* Esquerda: menu (agora com engrenagem) */}
         <div className="relative flex-1 flex items-center justify-start">
           <button
             ref={btnRef}
@@ -89,7 +89,10 @@ export default function Header({ selectedMonth, setSelectedMonth }) {
             aria-expanded={menuOpen}
             aria-label="Menu"
           >
-            <EllipsisVertical className="w-6 h-6" />
+            {/* =================================================================== */}
+            {/* ÍCONE TROCADO AQUI                                                  */}
+            {/* =================================================================== */}
+            <Settings className="w-6 h-6" />
           </button>
 
           {menuOpen && (
