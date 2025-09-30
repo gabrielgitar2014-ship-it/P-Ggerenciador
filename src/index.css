@@ -47,6 +47,60 @@
   opacity: 0;
 }
 
+/* --- CÓDIGO DA ANIMAÇÃO ESTILO DISNEY --- */
+@keyframes draw-arc {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes fade-in-text {
+  to {
+    opacity: 1;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+  }
+}
+.magic-arc {
+  stroke: #ffffff;
+  stroke-width: 5;
+  fill: transparent;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw-arc 1.5s ease-out forwards;
+  filter: drop-shadow(0 0 5px #ffffff) drop-shadow(0 0 15px #a7c2ff);
+}
+.logo-text-reveal {
+  opacity: 0;
+  animation: fade-in-text 1s ease-in forwards;
+  animation-delay: 0.8s;
+}
+
+/* --- ANIMAÇÕES PARA O EFEITO METÁLICO E PROJEÇÃO --- */
+@keyframes reveal-from-left {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes project-forward {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(5);
+  }
+}
+.animate-reveal-from-left {
+  animation: reveal-from-left 1.5s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+}
+.animate-project-forward {
+  animation: project-forward 0.7s ease-in forwards;
+}
+
+
 /* Variáveis de Tema (shadcn/ui) */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
