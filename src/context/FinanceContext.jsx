@@ -97,7 +97,6 @@ export function FinanceProvider({ children }) {
     }
   }, [fetchData]);
 
-  // --- RESTO DO SEU CÓDIGO (saveIncome, saveFixedExpense, deleteDespesa, getSaldoPorBanco) ---
   const saveIncome = async (incomeData) => {
     try {
       const isEdit = !!incomeData.id;
@@ -268,6 +267,40 @@ export function FinanceProvider({ children }) {
     }
   };
 
+  // <<< ALTERAÇÃO AQUI: INÍCIO DA NOVA FUNÇÃO >>>
+  const toggleFixedExpensePaidStatus = async (transactionId, newPaidStatus) => {
+    console.log(`[FinanceContext] Atualizando status de pagamento para ${newPaidStatus} no ID: ${transactionId}`);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({ paid: newPaidStatus })
+        .eq('id', transactionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[FinanceContext] Erro ao atualizar status de pagamento:', error);
+        throw error;
+      }
+      
+      console.log('[FinanceContext] Status de pagamento atualizado com sucesso:', data);
+      
+      setTransactions(currentTransactions =>
+        currentTransactions.map(t =>
+          t.id === transactionId ? { ...t, paid: newPaidStatus } : t
+        )
+      );
+
+      return data;
+
+    } catch (err) {
+      console.error("Falha ao alterar status de pagamento:", err);
+      await fetchData(); 
+      throw err;
+    }
+  };
+  // <<< ALTERAÇÃO AQUI: FIM DA NOVA FUNÇÃO >>>
+
   const deleteDespesa = async (despesaObject) => {
     console.groupCollapsed('[FinanceContext.deleteDespesa] start');
     console.log('[FinanceContext] Função deleteDespesa chamada com o objeto:', despesaObject);
@@ -368,6 +401,7 @@ export function FinanceProvider({ children }) {
     deleteDespesa,
     saveFixedExpense,
     saveIncome,
+    toggleFixedExpensePaidStatus, // <<< ALTERAÇÃO AQUI: EXPORTANDO A FUNÇÃO >>>
 
     // --- NOVO: expõe sincronização ---
     isSyncing,
