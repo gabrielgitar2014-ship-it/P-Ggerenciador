@@ -5,7 +5,8 @@ import { useVisibility } from "../../context/VisibilityContext";
 import { ArrowLeft } from "lucide-react";
 
 export default function FixasTab({ selectedMonth, onBack }) {
-  const { transactions, fetchData, saveFixedExpense, deleteDespesa } = useFinance();
+  // <<< ALTERAÇÃO AQUI: ADICIONANDO A NOVA FUNÇÃO >>>
+  const { transactions, fetchData, saveFixedExpense, deleteDespesa, toggleFixedExpensePaidStatus } = useFinance();
   const { showModal, hideModal } = useModal();
   const { valuesVisible } = useVisibility();
 
@@ -66,10 +67,16 @@ export default function FixasTab({ selectedMonth, onBack }) {
     });
   };
 
+  // <<< ALTERAÇÃO AQUI: ATUALIZANDO A FUNÇÃO DE PAGAMENTO >>>
   const handleTogglePaidStatus = async (expense) => {
-    console.log("Alterando status de pagamento para:", !expense.paid);
-    // Lembre-se de implementar a lógica de update no Supabase aqui
-    fetchData();
+    try {
+      await toggleFixedExpensePaidStatus(expense.id, !expense.paid);
+      await fetchData(); 
+      console.log("Status de pagamento alterado com sucesso para:", !expense.paid);
+    } catch (error) {
+      console.error("Erro ao tentar alterar o status de pagamento:", error);
+      alert("Não foi possível atualizar o status de pagamento. Tente novamente.");
+    }
   };
 
   const monthlyFixedExpenses = useMemo(() => {
