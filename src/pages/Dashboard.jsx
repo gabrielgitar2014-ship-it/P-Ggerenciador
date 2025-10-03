@@ -5,10 +5,10 @@ import WelcomeScreen from "../components/WelcomeScreen";
 import GeneralTab from "../components/tabs/Generaltab.jsx";
 import FixasTab from "../components/tabs/FixasTab.jsx";
 import BancosTab from "../components/tabs/BancosTab.jsx";
-import CardDetailPage from "./CardDetailPage";
+import CategoriasPage from "../components/tabs/CategoriasTab.jsx";
 import AllExpensesPage from "./AllExpensesPage";
-
-// 1. IMPORTAR O COMPONENTE QUE AGORA É UMA PÁGINA
+import CardDetailPage from "./CardDetailPage";
+import CategoryDetailPage from "./CategoryDetailPage"; // 1. IMPORTAR A NOVA PÁGINA
 import NovaDespesaModal from "../components/modals/NovaDespesaModal";
 
 const getCurrentMonth = () => {
@@ -17,7 +17,7 @@ const getCurrentMonth = () => {
 };
 
 export default function Dashboard({ onLogout, userRole }) {
-  const { allParcelas, loading, error, fetchData, clearAllData } = useFinance();
+  const { allParcelas, loading, error } = useFinance();
   
   const [view, setView] = useState({ name: 'geral', data: null });
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
@@ -38,7 +38,6 @@ export default function Dashboard({ onLogout, userRole }) {
     return (allParcelas || []).filter(p => p.data_parcela?.startsWith(selectedMonth));
   }, [selectedMonth, allParcelas]);
   
-  // 2. ADICIONAR A LÓGICA DE RENDERIZAÇÃO
   const renderCurrentView = () => {
     switch (view.name) {
       case 'geral':
@@ -47,21 +46,33 @@ export default function Dashboard({ onLogout, userRole }) {
         return <FixasTab onBack={handleBackToMain} selectedMonth={selectedMonth} />;
       case 'bancos':
         return <BancosTab onBack={handleBackToMain} onCardClick={(banco) => handleNavigate('cardDetail', banco)} selectedMonth={selectedMonth} />;
+      
+      case 'categorias':
+        return <CategoriasPage 
+                  onBack={handleBackToMain} 
+                  onNavigate={handleNavigate} // 2. PASSAR A FUNÇÃO DE NAVEGAÇÃO
+               />;
+
+      // 3. ADICIONAR O NOVO CASE PARA A PÁGINA DE DETALHES
+      case 'categoryDetail':
+        return <CategoryDetailPage
+                  categoryName={view.data.categoryName}
+                  dateRange={view.data.dateRange}
+                  onBack={() => handleNavigate('categorias')} // Volta para a página de categorias
+               />;
+
       case 'allExpenses':
         return <AllExpensesPage onBack={handleBackToMain} onNavigate={handleNavigate} selectedMonth={selectedMonth} />;
       case 'cardDetail':
         return <CardDetailPage 
-    banco={view.data} 
-    onBack={() => handleNavigate('bancos')} 
-    onNavigate={handleNavigate} // <-- ESTA LINHA É A SOLUÇÃO
-    selectedMonth={selectedMonth}  />;
+          banco={view.data} 
+          onBack={() => handleNavigate('bancos')} 
+          onNavigate={handleNavigate}
+          selectedMonth={selectedMonth} />;
       
-      // 👇 NOVOS CASOS ADICIONADOS AQUI 👇
       case 'novaDespesa':
-        // Renderiza o componente como uma página, passando a função 'onBack'
         return <NovaDespesaModal onBack={handleBackToMain} />;
       case 'editarDespesa':
-        // Renderiza o mesmo componente, mas com os dados da despesa para editar
         return <NovaDespesaModal onBack={handleBackToMain} despesaParaEditar={view.data} />;
 
       default:
