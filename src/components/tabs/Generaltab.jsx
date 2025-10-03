@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { useModal } from '../../context/ModalContext';
 import { useVisibility } from '../../context/VisibilityContext';
 import SummaryCard from '../SummaryCard'; 
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUp, ArrowDown, Pin, Landmark } from 'lucide-react'; 
+import { ArrowUp, ArrowDown, Pin, Landmark, PieChart } from 'lucide-react'; // 1. Ícone PieChart importado
 import { supabase } from '../../supabaseClient';
 
 const NavigationIcon = ({ icon: Icon, label, onClick }) => (
@@ -130,7 +130,7 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
 
       <div className="pt-4">
         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">Explorar Seções</h3>
-        <div className="flex justify-center items-center gap-8 py-4">
+        <div className="flex justify-center items-center gap-6 sm:gap-8 py-4">
           <NavigationIcon 
             icon={Pin}
             label="Fixas"
@@ -140,6 +140,12 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
             icon={Landmark}
             label="Bancos"
             onClick={() => onNavigate('bancos')}
+          />
+          {/* 2. Novo ícone de navegação adicionado */}
+          <NavigationIcon 
+            icon={PieChart}
+            label="Categorias"
+            onClick={() => onNavigate('categorias')}
           />
         </div>
       </div>
