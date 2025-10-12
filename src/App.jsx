@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { ModalProvider } from './context/ModalContext';
@@ -8,6 +8,7 @@ import { VisibilityProvider } from './context/VisibilityContext';
 import Dashboard from './pages/Dashboard';
 import MainLayout from './components/MainLayout';
 import PwaUpdater from './components/PwaUpdater';
+import WelcomeScreen from './components/WelcomeScreen'; // 1. IMPORTAR A TELA DE BOAS-VINDAS
 
 const getCurrentMonth = () => {
   const now = new Date();
@@ -16,17 +17,24 @@ const getCurrentMonth = () => {
 
 function App() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  // 2. ADICIONAR O ESTADO PARA CONTROLAR A TELA DE BOAS-VINDAS
+  const [showWelcome, setShowWelcome] = useState(true);
 
-  // LÓGICA DE NAVEGAÇÃO DE MÊS - AGORA CENTRALIZADA AQUI
+  // 3. LÓGICA DO TIMER MOVIDA PARA CÁ
+  useEffect(() => {
+    const welcomeTimer = setTimeout(() => setShowWelcome(false), 3000);
+    return () => clearTimeout(welcomeTimer);
+  }, []);
+
   const handlePreviousMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
-    const newDate = new Date(year, month - 2, 1); // month - 2 para voltar um mês
+    const newDate = new Date(year, month - 2, 1);
     setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
 
   const handleNextMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
-    const newDate = new Date(year, month, 1); // month (sem subtrair) para avançar um mês
+    const newDate = new Date(year, month, 1);
     setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`);
   };
 
@@ -36,16 +44,18 @@ function App() {
         <ModalProvider>
           <VisibilityProvider>
             <PwaUpdater />
-            <MainLayout 
-              selectedMonth={selectedMonth} 
-              // Não passamos mais o setSelectedMonth para o MainLayout/Header
-            >
-              <Dashboard 
-                selectedMonth={selectedMonth} 
-                onPreviousMonth={handlePreviousMonth} // Passando a função para o Dashboard
-                onNextMonth={handleNextMonth}     // Passando a função para o Dashboard
-              />
-            </MainLayout>
+            {/* 4. LÓGICA DE RENDERIZAÇÃO CONDICIONAL */}
+            {showWelcome ? (
+              <WelcomeScreen />
+            ) : (
+              <MainLayout selectedMonth={selectedMonth}>
+                <Dashboard
+                  selectedMonth={selectedMonth}
+                  onPreviousMonth={handlePreviousMonth}
+                  onNextMonth={handleNextMonth}
+                />
+              </MainLayout>
+            )}
           </VisibilityProvider>
         </ModalProvider>
       </FinanceProvider>
