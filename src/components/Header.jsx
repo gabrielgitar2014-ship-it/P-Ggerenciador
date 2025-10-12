@@ -6,9 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useFinance } from '../context/FinanceContext';
 import { Settings, Eye, EyeOff, Sun, Moon, Monitor, RefreshCw, CheckCircle2 } from 'lucide-react';
 
-// O componente MenuItem permanece exatamente o mesmo
+// O componente MenuItem permanece o mesmo
 function MenuItem({ icon: Icon, label, helper, onClick, spinning, disabled }) {
-  // ... (código do MenuItem sem alterações)
   return (
     <button
       role="menuitem"
@@ -29,16 +28,14 @@ function MenuItem({ icon: Icon, label, helper, onClick, spinning, disabled }) {
   );
 }
 
-
-export default function Header({ selectedMonth }) { // Apenas 'selectedMonth' é necessário
+export default function Header({ selectedMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
   const { isSyncing, lastSyncedAt, syncNow } = useFinance();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
-  
-  // Todo o resto da lógica do menu, tema e sync permanece o mesmo
+
   useEffect(() => {
     function onClickOutside(e) {
       if (menuOpen && menuRef.current && !menuRef.current.contains(e.target) && btnRef.current && !btnRef.current.contains(e.target)) {
@@ -55,7 +52,7 @@ export default function Header({ selectedMonth }) { // Apenas 'selectedMonth' é
     const nextTheme = themes[(currentIndex + 1) % themes.length];
     setTheme(nextTheme);
   };
-  
+
   const ThemeInfo = useMemo(() => {
     if (theme === 'light') return { Icon: Moon, text: 'Tema escuro' };
     if (theme === 'dark') return { Icon: Sun, text: 'Tema claro' };
@@ -70,14 +67,14 @@ export default function Header({ selectedMonth }) { // Apenas 'selectedMonth' é
     } catch { return String(lastSyncedAt); }
   }, [lastSyncedAt]);
 
-  // Formata o mês para exibição (ex: "Outubro de 2025")
-  const formattedMonth = useMemo(() => {
+  // AQUI ESTÁ A MUDANÇA: Separando mês e ano
+  const { displayMonth, displayYear } = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const date = new Date(year, month - 1);
-    return date.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    });
+    return {
+      displayMonth: date.toLocaleDateString('pt-BR', { month: 'long' }),
+      displayYear: date.toLocaleDateString('pt-BR', { year: 'numeric' }),
+    };
   }, [selectedMonth]);
 
 
@@ -97,19 +94,24 @@ export default function Header({ selectedMonth }) { // Apenas 'selectedMonth' é
              </div>
           )}
         </div>
-        
+
         {/* Centro: Título do App */}
         <div className="flex-1 flex items-center justify-center">
           <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-fuchsia-500">
             GenFinance
           </h1>
         </div>
-        
-        {/* Direita: NOVA EXIBIÇÃO DO MÊS */}
-        <div className="flex-1 flex items-center justify-end">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">
-            {formattedMonth}
-          </p>
+
+        {/* Direita: NOVA EXIBIÇÃO DO MÊS E ANO */}
+        <div className="flex-1 flex items-center justify-end text-right">
+          <div className="flex flex-col leading-tight">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 capitalize">
+              {displayMonth}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {displayYear}
+            </span>
+          </div>
         </div>
       </div>
     </header>
