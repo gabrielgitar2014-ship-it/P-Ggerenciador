@@ -42,38 +42,82 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
   const itemsPerPage = 10;
 
   const despesasDoMes = useMemo(() => {
-    if (!banco || !selectedMonth) return [];
+    // Adicione um log de início para ver quando o cálculo é refeito
+    console.log(`%c[DEBUG] Recalculando despesas para o banco: ${banco?.nome}, Mês: ${selectedMonth}`, 'color: #007acc;');
+
+    if (!banco || !selectedMonth) {
+        console.warn('[DEBUG] Banco ou Mês não selecionado. Retornando array vazio.');
+        return [];
+    }
+
     const bancoNomeLowerCase = banco.nome.toLowerCase();
-    const despesasFixas = transactions.filter(t => t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && t.is_fixed && t.date?.startsWith(selectedMonth));
-    const despesasPrincipaisDoBanco = transactions.filter(t => t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && !t.is_fixed);
+
+    // 1. Filtrando despesas fixas
+    const despesasFixas = transactions.filter(t => 
+        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
+        t.is_fixed && 
+        t.date?.startsWith(selectedMonth)
+    );
+    console.log('[DEBUG] 1. Despesas Fixas encontradas:', { count: despesasFixas.length, data: despesasFixas });
+
+    // 2. Filtrando despesas principais (variáveis e pais de parcelas)
+    const despesasPrincipaisDoBanco = transactions.filter(t => 
+        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && !t.is_fixed
+    );
+    console.log('[DEBUG] 2. Despesas Variáveis "Mãe" do banco:', { count: despesasPrincipaisDoBanco.length, data: despesasPrincipaisDoBanco });
+
+    // ✨ CORREÇÃO: Identificando despesas de pagamento único que estavam sendo ignoradas
+    const despesasVariaveisUnicas = despesasPrincipaisDoBanco.filter(d => 
+        d.is_parcelado === false && 
+        d.date?.startsWith(selectedMonth)
+    );
+    console.log('%c[DEBUG] 3. CORREÇÃO: Despesas Variáveis de Pagamento Único encontradas:', 'color: #28a745;', { count: despesasVariaveisUnicas.length, data: despesasVariaveisUnicas });
+
+
+    // 3. Processando as parcelas das despesas variáveis
     const idsDespesasVariaveis = despesasPrincipaisDoBanco.map(d => d.id);
     const parcelasVariaveis = allParcelas
-      .filter(p => idsDespesasVariaveis.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth))
-      .map(p => {
-        const despesaPrincipal = despesasPrincipaisDoBanco.find(d => d.id === p.despesa_id);
-        const parcelaInfo = despesaPrincipal ? `Parcela ${p.numero_parcela}/${despesaPrincipal.qtd_parcelas}` : '';
-        return { ...despesaPrincipal, ...p, id: p.id, parcelaInfo: parcelaInfo };
-      });
-    const todasAsDespesas = [...despesasFixas, ...parcelasVariaveis];
+        .filter(p => 
+            idsDespesasVariaveis.includes(p.despesa_id) && 
+            p.data_parcela?.startsWith(selectedMonth)
+        )
+        .map(p => {
+            const despesaPrincipal = despesasPrincipaisDoBanco.find(d => d.id === p.despesa_id);
+            const parcelaInfo = despesaPrincipal ? `Parcela ${p.numero_parcela}/${despesaPrincipal.qtd_parcelas}` : '';
+            return { ...despesaPrincipal, ...p, id: p.id, parcelaInfo: parcelaInfo };
+        });
+    console.log('[DEBUG] 4. Parcelas de Despesas Variáveis encontradas para o mês:', { count: parcelasVariaveis.length, data: parcelasVariaveis });
+
+    // 4. Combinando todas as despesas (Fixas, Pagamentos Únicos e Parcelas)
+    const todasAsDespesas = [...despesasFixas, ...despesasVariaveisUnicas, ...parcelasVariaveis];
+    console.log('%c[DEBUG] 5. Lista final de despesas combinadas (antes de filtros de tela):', 'color: #ffc107; font-weight: bold;', { count: todasAsDespesas.length, data: todasAsDespesas });
+
+
+    // O resto da sua lógica de filtragem e ordenação continua aqui...
     const filtradoPorParcelamento = mostrarApenasParcelados ? todasAsDespesas.filter(d => d.is_parcelado === true) : todasAsDespesas;
     const filtered = searchTerm ? filtradoPorParcelamento.filter(d => {
-          const searchTermLower = searchTerm.toLowerCase();
-          const normalizedSearchTermForValue = searchTerm.replace(',', '.');
-          return (d.description?.toLowerCase().includes(searchTermLower) || d.id.toString().includes(searchTerm) || d.despesa_id?.toString().includes(searchTerm) || d.amount?.toString().includes(normalizedSearchTermForValue));
-        }) : filtradoPorParcelamento;
+        const searchTermLower = searchTerm.toLowerCase();
+        const normalizedSearchTermForValue = searchTerm.replace(',', '.');
+        return (d.description?.toLowerCase().includes(searchTermLower) || d.id.toString().includes(searchTerm) || d.despesa_id?.toString().includes(searchTerm) || d.amount?.toString().includes(normalizedSearchTermForValue));
+    }) : filtradoPorParcelamento;
+
     const sorted = [...filtered].sort((a, b) => {
-      const dateA = new Date(a.data_compra || a.date);
-      const dateB = new Date(b.data_compra || b.date);
-      const descA = a.description?.toLowerCase() || '';
-      const descB = b.description?.toLowerCase() || '';
-      switch (sortOrder) {
-        case 'antigas': return dateA - dateB;
-        case 'a-z': return descA.localeCompare(descB);
-        case 'z-a': return descB.localeCompare(descA);
-        default: return dateB - dateA;
-      }
+        const dateA = new Date(a.data_compra || a.date);
+        const dateB = new Date(b.data_compra || b.date);
+        const descA = a.description?.toLowerCase() || '';
+        const descB = b.description?.toLowerCase() || '';
+        switch (sortOrder) {
+            case 'antigas': return dateA - dateB;
+            case 'a-z': return descA.localeCompare(descB);
+            case 'z-a': return descB.localeCompare(descA);
+            default: return dateB - dateA;
+        }
     });
-    setCurrentPage(1); 
+    
+    // setCurrentPage(1); // Removido para evitar loop infinito
+    
+    console.log('[DEBUG] 6. Despesas Finais após filtros e ordenação:', { count: sorted.length, data: sorted });
+    
     return sorted;
   }, [banco, selectedMonth, transactions, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
 
@@ -86,13 +130,13 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
 
   const nextPage = () => setCurrentPage((current) => Math.min(current + 1, totalPages));
   const prevPage = () => setCurrentPage((current) => Math.max(current - 1, 1));
-  
+ 
   const handleEditDespesa = (despesa) => {
     const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
     // 3. ALTERADO DE showModal PARA onNavigate
     onNavigate('editarDespesa', despesaOriginal);
   };
-  
+ 
   const handleDeleteDespesa = (despesa) => {
     const despesaOriginal = transactions.find(t => !t.is_fixed && t.id === despesa.despesa_id) || despesa;
     showModal('confirmation', {
