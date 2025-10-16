@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { useVisibility } from '../context/VisibilityContext'; // 1. IMPORTAR VISIBILIDADE
+import { useVisibility } from '../context/VisibilityContext';
 import CartaoPersonalizado from '../components/CartaoPersonalizado';
 import ListaTransacoes from '../components/ListaTransacoes';
 import { useModal } from '../context/ModalContext';
@@ -32,7 +32,7 @@ const listContainerVariants = {
 const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
   const { getSaldoPorBanco, fetchData, deleteDespesa, transactions, allParcelas } = useFinance();
   const { showModal } = useModal();
-  const { valuesVisible } = useVisibility(); // 2. USAR O HOOK DE VISIBILIDADE
+  const { valuesVisible } = useVisibility();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,39 +42,41 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
   const itemsPerPage = 10;
 
   const despesasDoMes = useMemo(() => {
-    // Adicione um log de início para ver quando o cálculo é refeito
-    console.log(`%c[DEBUG] Recalculando despesas para o banco: ${banco?.nome}, Mês: ${selectedMonth}`, 'color: #007acc;');
-
     if (!banco || !selectedMonth) {
-        console.warn('[DEBUG] Banco ou Mês não selecionado. Retornando array vazio.');
         return [];
     }
 
     const bancoNomeLowerCase = banco.nome.toLowerCase();
 
-    // 1. Filtrando despesas fixas
+    // 1. Filtrando despesas fixas (Lógica inalterada)
     const despesasFixas = transactions.filter(t => 
         t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
         t.is_fixed && 
         t.date?.startsWith(selectedMonth)
     );
-    console.log('[DEBUG] 1. Despesas Fixas encontradas:', { count: despesasFixas.length, data: despesasFixas });
 
     // 2. Filtrando despesas principais (variáveis e pais de parcelas)
     const despesasPrincipaisDoBanco = transactions.filter(t => 
         t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && !t.is_fixed
     );
-    console.log('[DEBUG] 2. Despesas Variáveis "Mãe" do banco:', { count: despesasPrincipaisDoBanco.length, data: despesasPrincipaisDoBanco });
 
-    // ✨ CORREÇÃO: Identificando despesas de pagamento único que estavam sendo ignoradas
-    const despesasVariaveisUnicas = despesasPrincipaisDoBanco.filter(d => 
-        d.is_parcelado === false && 
-        d.date?.startsWith(selectedMonth)
-    );
-    console.log('%c[DEBUG] 3. CORREÇÃO: Despesas Variáveis de Pagamento Único encontradas:', 'color: #28a745;', { count: despesasVariaveisUnicas.length, data: despesasVariaveisUnicas });
+    // ✨✨✨ CORREÇÃO APLICADA AQUI ✨✨✨
+    // Agora, para despesas de pagamento único, o `mes_inicio_cobranca` tem prioridade.
+    const despesasVariaveisUnicas = despesasPrincipaisDoBanco.filter(d => {
+        // A despesa só é considerada se for de pagamento único
+        if (d.is_parcelado === false) {
+            // Se `mes_inicio_cobranca` existir, ele é a regra.
+            // A despesa pertence ao mês se `mes_inicio_cobranca` começar com o mês selecionado.
+            if (d.mes_inicio_cobranca) {
+                return d.mes_inicio_cobranca.startsWith(selectedMonth);
+            }
+            // Se não houver `mes_inicio_cobranca`, usamos a data da compra como antes.
+            return d.date?.startsWith(selectedMonth);
+        }
+        return false;
+    });
 
-
-    // 3. Processando as parcelas das despesas variáveis
+    // 3. Processando as parcelas das despesas variáveis (Lógica inalterada)
     const idsDespesasVariaveis = despesasPrincipaisDoBanco.map(d => d.id);
     const parcelasVariaveis = allParcelas
         .filter(p => 
@@ -86,13 +88,10 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
             const parcelaInfo = despesaPrincipal ? `Parcela ${p.numero_parcela}/${despesaPrincipal.qtd_parcelas}` : '';
             return { ...despesaPrincipal, ...p, id: p.id, parcelaInfo: parcelaInfo };
         });
-    console.log('[DEBUG] 4. Parcelas de Despesas Variáveis encontradas para o mês:', { count: parcelasVariaveis.length, data: parcelasVariaveis });
 
-    // 4. Combinando todas as despesas (Fixas, Pagamentos Únicos e Parcelas)
+    // 4. Combinando todas as despesas
     const todasAsDespesas = [...despesasFixas, ...despesasVariaveisUnicas, ...parcelasVariaveis];
-    console.log('%c[DEBUG] 5. Lista final de despesas combinadas (antes de filtros de tela):', 'color: #ffc107; font-weight: bold;', { count: todasAsDespesas.length, data: todasAsDespesas });
-
-
+    
     // O resto da sua lógica de filtragem e ordenação continua aqui...
     const filtradoPorParcelamento = mostrarApenasParcelados ? todasAsDespesas.filter(d => d.is_parcelado === true) : todasAsDespesas;
     const filtered = searchTerm ? filtradoPorParcelamento.filter(d => {
@@ -113,11 +112,7 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
             default: return dateB - dateA;
         }
     });
-    
-    // setCurrentPage(1); // Removido para evitar loop infinito
-    
-    console.log('[DEBUG] 6. Despesas Finais após filtros e ordenação:', { count: sorted.length, data: sorted });
-    
+        
     return sorted;
   }, [banco, selectedMonth, transactions, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
 
@@ -133,7 +128,6 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
  
   const handleEditDespesa = (despesa) => {
     const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
-    // 3. ALTERADO DE showModal PARA onNavigate
     onNavigate('editarDespesa', despesaOriginal);
   };
  
@@ -191,7 +185,6 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
             <div>
               <CardTitle className="text-slate-800 dark:text-slate-100">{cardTitle}</CardTitle>
               <CardDescription className="mt-1 text-slate-700 dark:text-slate-300">
-                {/* 4. APLICADA A LÓGICA DE VISIBILIDADE */}
                 {valuesVisible ? formatCurrency(totalDespesasValor) : 'R$ ••••'} em {despesasDoMes?.length || 0} {transactionLabel}
               </CardDescription>
             </div>
@@ -208,7 +201,6 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
                   <SelectItem value="z-a">Ordem Z-A</SelectItem>
                 </SelectContent>
               </Select>
-              {/* 5. ALTERADO DE showModal PARA onNavigate */}
               <Button onClick={() => onNavigate('novaDespesa')} className="gap-2">
                 <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Despesa</span>
               </Button>
