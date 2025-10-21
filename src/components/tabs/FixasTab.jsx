@@ -1,0 +1,173 @@
+import { useState, useMemo } from "react";
+import { useFinance } from "../../context/FinanceContext";
+import { useModal } from "../../context/ModalContext";
+import { useVisibility } from "../../context/VisibilityContext";
+import { ArrowLeft } from "lucide-react";
+
+export default function FixasTab({ selectedMonth, onBack }) {
+  // <<< ALTERAÇÃO AQUI: ADICIONANDO A NOVA FUNÇÃO >>>
+  const { transactions, fetchData, saveFixedExpense, deleteDespesa, toggleFixedExpensePaidStatus } = useFinance();
+  const { showModal, hideModal } = useModal();
+  const { valuesVisible } = useVisibility();
+
+  const [transactionToEdit, setTransactionToEdit] = useState(null);
+
+  const handleSave = async (expenseData) => {
+    try {
+      await saveFixedExpense(expenseData);
+      fetchData();
+      hideModal();
+      setTransactionToEdit(null);
+    } catch (error) {
+      console.error("Falha ao salvar a despesa fixa:", error);
+      alert(`Não foi possível salvar a despesa: ${error.message}`);
+    }
+  };
+
+  const handleOpenEditModal = (transaction) => {
+    setTransactionToEdit(transaction);
+    showModal('newFixedExpense', { transactionToEdit: transaction, onSave: handleSave });
+  };
+
+  const handleOpenNewModal = () => {
+    setTransactionToEdit(null);
+    showModal('newFixedExpense', { onSave: handleSave });
+  };
+  
+  const handleDelete = (expense) => {
+    if (!deleteDespesa) {
+        console.error("Função deleteDespesa não foi encontrada no contexto!");
+        alert("Erro crítico: A função para deletar não está disponível.");
+        return;
+    }
+    
+    showModal('confirmation', {
+      title: 'Confirmar Exclusão',
+      description: `Você tem certeza que deseja excluir a despesa "${expense.description}"? Esta ação não pode ser desfeita.`,
+      confirmText: 'Sim, Excluir',
+      onConfirm: async () => {
+        try {
+          await deleteDespesa(expense);
+          console.log("Despesa deletada com sucesso!");
+          fetchData();
+          hideModal();
+        } catch(error) {
+            console.error("Erro ao deletar despesa:", error);
+            alert(`Erro ao tentar excluir: ${error.message}`);
+        }
+      }
+    });
+  };
+
+  const handleShowDetails = (expense) => {
+    showModal('transactionDetail', {
+      transaction: expense,
+      onEdit: () => handleOpenEditModal(expense),
+      onDelete: () => handleDelete(expense)
+    });
+  };
+
+  // <<< ALTERAÇÃO AQUI: ATUALIZANDO A FUNÇÃO DE PAGAMENTO >>>
+  const handleTogglePaidStatus = async (expense) => {
+    try {
+      await toggleFixedExpensePaidStatus(expense.id, !expense.paid);
+      await fetchData(); 
+      console.log("Status de pagamento alterado com sucesso para:", !expense.paid);
+    } catch (error) {
+      console.error("Erro ao tentar alterar o status de pagamento:", error);
+      alert("Não foi possível atualizar o status de pagamento. Tente novamente.");
+    }
+  };
+
+  const monthlyFixedExpenses = useMemo(() => {
+    return transactions.filter((t) => t.date?.startsWith(selectedMonth) && t.type === "expense" && t.is_fixed);
+  }, [transactions, selectedMonth]);
+
+  const totalIncome = useMemo(() => {
+    return transactions
+      .filter(t => t.date && t.date.startsWith(selectedMonth) && t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, selectedMonth]);
+
+  const totalFixedExpenses = monthlyFixedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const percentage = totalIncome > 0 ? (totalFixedExpenses / totalIncome) * 100 : 0;
+  const barWidth = Math.min(percentage, 100);
+  const formatCurrency = (value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
+
+  return (
+    <div className="space-y-6 animate-fade-in-down">
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onBack} 
+            className="p-2 rounded-full hover:bg-white/20 dark:hover:bg-slate-700/50 transition-colors"
+            aria-label="Voltar para a tela principal"
+          >
+            <ArrowLeft className="w-6 h-6 text-slate-800 dark:text-slate-100" />
+          </button>
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Despesas Fixas</h2>
+        </div>
+        <button onClick={handleOpenNewModal} className="flex items-center gap-2 bg-gradient-to-br from-red-500 to-rose-600 text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity shadow-md">
+          <span className="material-symbols-outlined">add</span>Nova Despesa Fixa
+        </button>
+      </div>
+
+      <div className="
+        p-5 rounded-2xl shadow-lg space-y-3
+        bg-white/30 dark:bg-slate-800/30 
+        backdrop-blur-lg 
+        border border-white/40 dark:border-slate-700/60
+      ">
+        <div className="flex justify-between items-center text-lg">
+          <span className="text-slate-700 dark:text-slate-200">Total de Despesas Fixas:</span>
+          <span className="font-bold text-red-600 dark:text-red-400">
+            {valuesVisible ? formatCurrency(totalFixedExpenses) : 'R$ ••••'}
+          </span>
+        </div>
+        {totalIncome > 0 && (
+          <div>
+            <div className="flex justify-between text-sm text-slate-600 dark:text-slate-300 mb-1">
+              <span>Consumo da Renda</span>
+              <span>{percentage.toFixed(2)}%</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4">
+              <div className="bg-gradient-to-r from-red-500 to-rose-500 h-4 rounded-full transition-all duration-500" style={{ width: `${barWidth}%` }}></div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {monthlyFixedExpenses.length === 0 ? (
+          <div className="
+            text-center py-8 text-slate-700 dark:text-slate-200 p-5 rounded-2xl
+            bg-white/30 dark:bg-slate-800/30 
+            backdrop-blur-full
+            border border-white/40 dark:border-slate-700/60
+          ">
+            Nenhuma despesa fixa registrada para este mês.
+          </div>
+        ) : (
+          monthlyFixedExpenses.map((expense) => (
+            <div key={expense.id} className="
+              flex justify-between items-center p-4 rounded-xl
+              bg-white/30 dark:bg-slate-800/30 
+              backdrop-blur-md
+              border border-white/40 dark:border-slate-700/60
+            ">
+              <div onClick={() => handleShowDetails(expense)} className="text-left flex-1 min-w-0 cursor-pointer">
+                <p className={`text-slate-800 dark:text-slate-100 truncate ${expense.paid ? "line-through text-slate-500 dark:text-slate-400" : ""}`}>{expense.description}</p>
+                <p className="font-semibold text-red-600 dark:text-red-400 block">
+                  {valuesVisible ? formatCurrency(expense.amount) : 'R$ ••••'}
+                </p>
+              </div>
+              <button onClick={() => handleTogglePaidStatus(expense)} className={`ml-4 py-1 px-4 text-sm font-semibold text-white rounded-full transition-colors ${expense.paid ? "bg-gradient-to-br from-green-500 to-emerald-500" : "bg-slate-400 dark:bg-slate-600 hover:bg-slate-500"}`}>
+                {expense.paid ? "Pago" : "Pagar"}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
