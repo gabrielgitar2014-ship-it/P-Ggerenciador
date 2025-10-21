@@ -1,8 +1,7 @@
 // src/pages/Dashboard.jsx
 
-import { useState, useMemo } from "react"; // 'useEffect' removido pois não é mais necessário aqui
+import { useState, useMemo } from "react";
 import { useFinance } from "../context/FinanceContext";
-// 1. IMPORTAÇÃO DO 'WelcomeScreen' REMOVIDA
 import GeneralTab from "../components/tabs/Generaltab.jsx";
 import FixasTab from "../components/tabs/FixasTab.jsx";
 import BancosTab from "../components/tabs/BancosTab.jsx";
@@ -10,11 +9,10 @@ import CategoriasPage from "../components/tabs/CategoriasTab.jsx";
 import AllExpensesPage from "./AllExpensesPage";
 import CardDetailPage from "./CardDetailPage";
 import CategoryDetailPage from "./CategoryDetailPage";
-import NovaDespesaBot from "./NovaDespesaBot";
+// import NovaDespesaBot from "./NovaDespesaBot"; // <<< 1. REMOVIDO
 import NovaDespesaModal from "../components/modals/NovaDespesaModal";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ... (as constantes 'variants', 'swipeConfidenceThreshold', 'swipePower' permanecem as mesmas) ...
 const variants = {
   enter: (direction) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }),
   center: { zIndex: 1, x: 0, opacity: 1 },
@@ -27,7 +25,6 @@ const swipePower = (offset, velocity) => Math.abs(offset) * velocity;
 export default function Dashboard({ selectedMonth, onPreviousMonth, onNextMonth }) {
   const { allParcelas, loading, error } = useFinance();
   const [view, setView] = useState({ name: 'geral', data: null });
-  // 2. LÓGICA DO 'showWelcome' E 'useEffect' COMPLETAMENTE REMOVIDA
   const [[page, direction], setPage] = useState([0, 0]);
 
   const handleNavigate = (viewName, viewData = null) => setView({ name: viewName, data: viewData });
@@ -44,7 +41,6 @@ export default function Dashboard({ selectedMonth, onPreviousMonth, onNextMonth 
   };
 
   const renderCurrentView = () => {
-    // ... (o switch case permanece exatamente o mesmo) ...
     switch (view.name) {
       case 'geral': return <GeneralTab onNavigate={handleNavigate} selectedMonth={selectedMonth} parcelasDoMes={parcelasDoMesSelecionado} />;
       case 'fixas': return <FixasTab onBack={handleBackToMain} selectedMonth={selectedMonth} />;
@@ -53,13 +49,16 @@ export default function Dashboard({ selectedMonth, onPreviousMonth, onNextMonth 
       case 'categoryDetail': return <CategoryDetailPage categoryName={view.data.categoryName} dateRange={view.data.dateRange} onBack={() => handleNavigate('categorias')} />;
       case 'allExpenses': return <AllExpensesPage onBack={handleBackToMain} onNavigate={handleNavigate} selectedMonth={selectedMonth} />;
       case 'cardDetail': return <CardDetailPage banco={view.data} onBack={() => handleNavigate('bancos')} onNavigate={handleNavigate} selectedMonth={selectedMonth} />;
-      case 'novaDespesa': return <NovaDespesaBot onBack={handleBackToMain} />;
+      
+      // <<< 2. CORREÇÃO DA LÓGICA >>>
+      // Agora, 'novaDespesa' chama o NovaDespesaModal em modo "criação"
+      case 'novaDespesa': return <NovaDespesaModal onBack={handleBackToMain} despesaParaEditar={null} />;
+      
       case 'editarDespesa': return <NovaDespesaModal onBack={handleBackToMain} despesaParaEditar={view.data} />;
       default: return <GeneralTab onNavigate={handleNavigate} selectedMonth={selectedMonth} parcelasDoMes={parcelasDoMesSelecionado} />;
     }
   };
 
-  // 3. O 'if (showWelcome)' FOI REMOVIDO DAQUI
   return (
     <>
       {error && <div className="p-4 bg-red-500 text-white rounded-xl">{error}</div>}
