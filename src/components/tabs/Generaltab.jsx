@@ -48,7 +48,7 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
 
     // --- INÍCIO DA CORREÇÃO DE LÓGICA ---
 
-    // 1. Cálculo da Renda (correto, pois 'income' só vem da tabela 'transactions' e usa 'date')
+    // 1. Cálculo da Renda (tabela 'transactions')
     const income = transactions
       .filter(t => t.type === 'income' && t.date?.startsWith(selectedMonth))
       .reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -61,37 +61,20 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
         t.date?.startsWith(selectedMonth)
     );
 
-    // 3. Cálculo de Despesas Variáveis (Pais de parcelas e Avulsas/PIX)
-    // Pega itens da 'despesas' (is_fixed=undefined) e PIX da 'transactions' (is_fixed=false)
-    const despesasPrincipais = transactions.filter(t => !t.is_fixed);
+    // 3. Despesas Variáveis (Parceladas e Avulsas/PIX da tabela 'parcelas')
+    // A prop 'parcelasDoMes' já contém todas as parcelas corretas para o mês,
+    // (incluindo as de 1x, conforme sua regra de negócio).
 
-    // 4. Filtra apenas as Despesas Variáveis Avulsas (PIX) do mês
-    const despesasVariaveisUnicasDoMes = despesasPrincipais.filter(d => {
-        if (d.is_parcelado === false) { // É PIX ou avulsa
-            // Checa a data de cobrança primeiro
-            if (d.mes_inicio_cobranca) {
-                return d.mes_inicio_cobranca.startsWith(selectedMonth);
-            }
-            // Se não tiver, usa a 'date' (padrão para itens da 'transactions')
-            return d.date?.startsWith(selectedMonth);
-        }
-        return false;
-    });
-
-    // 5. Despesas Variáveis Parceladas (já vem filtradas por mês do Dashboard)
-    // A prop 'parcelasDoMes' já contém as parcelas corretas para o mês.
-
-    // 6. Combina todas as despesas
+    // 4. Combina todas as despesas (Fixas + Parcelas)
     const allExpenses = [
       ...despesasFixasDoMes,
-      ...despesasVariaveisUnicasDoMes,
       ...(parcelasDoMes || [])
     ];
 
-    // 7. Soma o total
+    // 5. Soma o total
     const totalExpense = allExpenses.reduce((sum, t) => sum + (t.amount || 0), 0);
     
-    // 8. Calcula o saldo
+    // 6. Calcula o saldo
     const balance = income - totalExpense;
     
     // --- FIM DA CORREÇÃO DE LÓGICA ---
