@@ -380,43 +380,33 @@ export function FinanceProvider({ children }) {
         t.date?.startsWith(selectedMonth)
     );
 
-    // 2. Filtrando despesas principais (PIX da 'transactions' E Pais de Parcelas da 'despesas')
+    // 2. Filtrando despesas principais (Pais de Parcelas da 'despesas' e PIX da 'transactions')
     const despesasPrincipaisDoBanco = transactions.filter(
       (t) => 
         t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
-        !t.is_fixed 
+        !t.is_fixed // Pega TODAS que não são fixas (pais de parcelas E avulsas/PIX)
     );
 
-    // 3. Filtrando Despesas Variáveis AVULSAS (Ex: PIX)
-    const despesasVariaveisUnicas = despesasPrincipaisDoBanco.filter(d => {
-        if (d.is_parcelado === false) { 
-            if (d.mes_inicio_cobranca) {
-                return d.mes_inicio_cobranca.startsWith(selectedMonth);
-            }
-            return d.date?.startsWith(selectedMonth);
-        }
-        return false;
-    });
-
-    // 4. Filtrando PARCELAS (da tabela 'parcelas')
+    // --- INÍCIO DA CORREÇÃO DE LÓGICA ---
     
-    // <<< INÍCIO DA CORREÇÃO DE LÓGICA (Evita Duplicação) >>>
-    // Pega os IDs APENAS das despesas que são de fato parceladas
-    const idsDespesasVariaveis = despesasPrincipaisDoBanco
-        .filter(d => d.is_parcelado === true) // Só pega pais que são parcelados
-        .map(d => d.id);
-    // <<< FIM DA CORREÇÃO DE LÓGICA >>>
+    // 3. Pega os IDs de TODAS as despesas variáveis (pais/avulsas) do banco
+    // (Conforme a regra, todas geram 'parcelas', mesmo as de 1x)
+    const idsDespesasVariaveis = despesasPrincipaisDoBanco.map(d => d.id);
         
+    // 4. Filtrando PARCELAS (da tabela 'parcelas')
+    // Busca todas as parcelas (incluindo as de 1x) que pertencem a essas despesas principais
     const parcelasVariaveisDoMes = allParcelas.filter(
       (p) => idsDespesasVariaveis.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth)
     );
 
-    // 5. Somando todos os tipos de despesa (Sem duplicar)
+    // 5. Somando os tipos de despesa (Fixas + Parcelas)
     const totalFixo = despesasFixasDoMes.reduce((acc, despesa) => acc - (Number(despesa.amount) || 0), 0);
-    const totalVariavelAvulsa = despesasVariaveisUnicas.reduce((acc, despesa) => acc - (Number(despesa.amount) || 0), 0);
     const totalVariavelParcelada = parcelasVariaveisDoMes.reduce((acc, parcela) => acc - (Number(parcela.amount) || 0), 0);
     
-    return totalFixo + totalVariavelAvulsa + totalVariavelParcelada;
+    // Retorna apenas a soma das fixas e das parcelas (sem `totalVariavelAvulsa`)
+    return totalFixo + totalVariavelParcelada;
+
+    // --- FIM DA CORREÇÃO DE LÓGICA ---
   };
   
 
@@ -454,4 +444,5 @@ export const useFinance = () => {
     throw new Error('useFinance deve ser usado dentro de um FinanceProvider');
   }
   return context;
+
 };
