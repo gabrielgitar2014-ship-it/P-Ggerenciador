@@ -62,7 +62,7 @@ export function FinanceProvider({ children }) {
       setLoading(false);
       console.groupEnd();
     }
-  }, []);
+  }, []); // fetchData é estável
 
   useEffect(() => {
     fetchData();
@@ -98,7 +98,9 @@ export function FinanceProvider({ children }) {
     }
   }, [fetchData]);
 
-  const saveIncome = async (incomeData) => {
+  // --- INÍCIO DA CORREÇÃO (useCallback) ---
+
+  const saveIncome = useCallback(async (incomeData) => {
     try {
       const isEdit = !!incomeData.id;
       let result;
@@ -126,9 +128,9 @@ export function FinanceProvider({ children }) {
       console.error("Erro ao salvar renda:", err);
       throw err;
     }
-  };
+  }, [fetchData]); // Adiciona fetchData como dependência
 
-  const saveFixedExpense = async (expenseData) => {
+  const saveFixedExpense = useCallback(async (expenseData) => {
     console.groupCollapsed('[FinanceContext.saveFixedExpense] start');
     try {
       console.info('[FinanceContext.saveFixedExpense] payload recebido:', expenseData);
@@ -266,9 +268,9 @@ export function FinanceProvider({ children }) {
       }
       console.groupEnd();
     }
-  };
+  }, [fetchData]); // Adiciona fetchData como dependência
 
-  const toggleFixedExpensePaidStatus = async (transactionId, newPaidStatus) => {
+  const toggleFixedExpensePaidStatus = useCallback(async (transactionId, newPaidStatus) => {
     console.log(`[FinanceContext] Atualizando status de pagamento para ${newPaidStatus} no ID: ${transactionId}`);
     try {
       const { data, error } = await supabase
@@ -298,9 +300,9 @@ export function FinanceProvider({ children }) {
       await fetchData(); 
       throw err;
     }
-  };
+  }, [fetchData]); // Adiciona fetchData como dependência
 
-  const deleteDespesa = async (despesaObject) => {
+  const deleteDespesa = useCallback(async (despesaObject) => {
     console.groupCollapsed('[FinanceContext.deleteDespesa] start');
     console.log('[FinanceContext] Função deleteDespesa chamada com o objeto:', despesaObject);
 
@@ -365,10 +367,10 @@ export function FinanceProvider({ children }) {
       }
       console.groupEnd();
     }
-  };
+  }, [fetchData]); // Adiciona fetchData como dependência
 
   
-  const getSaldoPorBanco = (banco, selectedMonth) => {
+  const getSaldoPorBanco = useCallback((banco, selectedMonth) => {
     const bancoNomeLowerCase = banco.nome?.toLowerCase();
 
     // 1. Filtrando despesas fixas (da tabela 'transactions')
@@ -386,8 +388,6 @@ export function FinanceProvider({ children }) {
         t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
         !t.is_fixed // Pega TODAS que não são fixas (pais de parcelas E avulsas/PIX)
     );
-
-    // --- INÍCIO DA CORREÇÃO DE LÓGICA ---
     
     // 3. Pega os IDs de TODAS as despesas variáveis (pais/avulsas) do banco
     // (Conforme a regra, todas geram 'parcelas', mesmo as de 1x)
@@ -405,9 +405,9 @@ export function FinanceProvider({ children }) {
     
     // Retorna apenas a soma das fixas e das parcelas (sem `totalVariavelAvulsa`)
     return totalFixo + totalVariavelParcelada;
-
-    // --- FIM DA CORREÇÃO DE LÓGICA ---
-  };
+  }, [transactions, allParcelas]); // Adiciona dependências de estado
+  
+  // --- FIM DA CORREÇÃO ---
   
 
   const value = useMemo(() => ({
@@ -433,7 +433,7 @@ export function FinanceProvider({ children }) {
     saveFixedExpense, saveIncome, deleteDespesa, getSaldoPorBanco,
     isSyncing, lastSyncedAt, syncNow,
     toggleFixedExpensePaidStatus 
-  ]);
+  ]); // As dependências aqui agora são estáveis
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
