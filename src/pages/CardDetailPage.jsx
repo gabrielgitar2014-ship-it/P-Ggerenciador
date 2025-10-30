@@ -3,11 +3,17 @@ import { useFinance } from '../context/FinanceContext';
 import { useVisibility } from '../context/VisibilityContext';
 import CartaoPersonalizado from '../components/CartaoPersonalizado';
 import ListaTransacoes from '../components/ListaTransacoes';
-import { useModal } from '../context/ModalContext';
+import { useModal } from '../context/ModalContext'; // Já estava sendo usado
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+
+// <<< [ALTERAÇÃO] Imports de PDF removidos. Apenas o 'Printer' é necessário.
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
+// import jsPDF from 'jspdf'; // REMOVIDO
+// import autoTable from 'jspdf-autotable'; // REMOVIDO
+// --- Fim da Alteração
+
 import SearchBar from '../components/SearchBar';
 import { supabase } from '../supabaseClient';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,8 +36,8 @@ const listContainerVariants = {
 };
 
 const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
-  const { getSaldoPorBanco, fetchData, deleteDespesa, transactions, allParcelas } = useFinance();
-  const { showModal } = useModal();
+  const { getSaldoPorBanco, fetchData, deleteDespesa, transactions, variableExpenses, allParcelas } = useFinance();
+  const { showModal } = useModal(); // <--- 'showModal' já está disponível
   const { valuesVisible } = useVisibility();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,86 +47,69 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
 
   const itemsPerPage = 10;
 
+  // Lógica do useMemo (corrigida, sem duplicação)
   const despesasDoMes = useMemo(() => {
-    if (!banco || !selectedMonth) {
-        return [];
-    }
-
+    if (!banco || !selectedMonth) return [];
     const bancoNomeLowerCase = banco.nome.toLowerCase();
 
-    // 1. Filtrando despesas fixas (Lógica inalterada)
+    // 1. Pega despesas fixas
     const despesasFixas = transactions.filter(t => 
         t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
         t.is_fixed && 
         t.date?.startsWith(selectedMonth)
     );
 
-    // 2. Filtrando despesas principais (variáveis e pais de parcelas)
-    //    Itens com is_fixed=false (PIX) OU is_fixed=undefined (Pais de Parcela)
-    const despesasPrincipaisDoBanco = transactions.filter(t => 
-        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && !t.is_fixed
+    // 2. Pega despesas variáveis principais (para mapear)
+    const despesasPrincipaisDoBanco = variableExpenses.filter(t => 
+        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase
     );
+    const idsDespesasVariaveis = despesasPrincipaisDoBanco.map(d => d.id);
 
-    // 3. Filtrando despesas de pagamento único (Avulsas, PIX)
-    const despesasVariaveisUnicas = despesasPrincipaisDoBanco.filter(d => {
-        // A despesa só é considerada se for de pagamento único
-        if (d.is_parcelado === false) {
-            // Se `mes_inicio_cobranca` existir, ele é a regra.
-            if (d.mes_inicio_cobranca) {
-                return d.mes_inicio_cobranca.startsWith(selectedMonth);
-            }
-            // Se não houver `mes_inicio_cobranca`, usamos a data da compra como antes.
-            return d.date?.startsWith(selectedMonth);
-        }
-        return false;
-    });
-
-    // 4. Processando as parcelas das despesas variáveis
-    
-    // <<< INÍCIO DA CORREÇÃO DE LÓGICA (Evita Duplicação) >>>
-    // Pega os IDs APENAS das despesas que são de fato parceladas
-    const idsDespesasVariaveis = despesasPrincipaisDoBanco
-        .filter(d => d.is_parcelado === true) // Só pega pais que são parcelados
-        .map(d => d.id);
-    // <<< FIM DA CORREÇÃO DE LÓGICA >>>
-        
+    // 3. Filtra as parcelas (única fonte de variáveis)
     const parcelasVariaveis = allParcelas
-        .filter(p => 
-            idsDespesasVariaveis.includes(p.despesa_id) && 
-            p.data_parcela?.startsWith(selectedMonth)
-        )
-        .map(p => {
-            const despesaPrincipal = despesasPrincipaisDoBanco.find(d => d.id === p.despesa_id);
-            const parcelaInfo = despesaPrincipal ? `Parcela ${p.numero_parcela}/${despesaPrincipal.qtd_parcelas}` : '';
-            return { ...despesaPrincipal, ...p, id: p.id, parcelaInfo: parcelaInfo };
-        });
+      .filter(p => idsDespesasVariaveis.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth))
+      .map(p => {
+        const despesaPrincipal = despesasPrincipaisDoBanco.find(d => d.id === p.despesa_id);
+        const parcelaInfo = despesaPrincipal ? `Parcela ${p.numero_parcela}/${despesaPrincipal.qtd_parcelas}` : '';
+        return { 
+            ...despesaPrincipal,
+            ...p,
+            id: p.id,
+            date: p.data_parcela,
+            parcelaInfo: parcelaInfo,
+            category: despesaPrincipal?.category || 'N/A' // <<< [BÔNUS] Adicionei a categoria
+        };
+      });
 
-    // 5. Combinando todas as despesas (Fixas, Avulsas, Parcelas)
-    const todasAsDespesas = [...despesasFixas, ...despesasVariaveisUnicas, ...parcelasVariaveis];
+    // 5. Junta tudo (APENAS Fixas e Parceladas)
+    const todasAsDespesas = [...despesasFixas.map(f => ({...f, category: f.category || 'Fixa'})), ...parcelasVariaveis];
     
-    // O resto da sua lógica de filtragem e ordenação continua aqui...
+    // Lógica de filtro e ordenação
     const filtradoPorParcelamento = mostrarApenasParcelados ? todasAsDespesas.filter(d => d.is_parcelado === true) : todasAsDespesas;
+    
     const filtered = searchTerm ? filtradoPorParcelamento.filter(d => {
-        const searchTermLower = searchTerm.toLowerCase();
-        const normalizedSearchTermForValue = searchTerm.replace(',', '.');
-        return (d.description?.toLowerCase().includes(searchTermLower) || d.id.toString().includes(searchTerm) || d.despesa_id?.toString().includes(searchTerm) || d.amount?.toString().includes(normalizedSearchTermForValue));
-    }) : filtradoPorParcelamento;
-
-    const sorted = [...filtered].sort((a, b) => {
-        const dateA = new Date(a.data_compra || a.date);
-        const dateB = new Date(b.data_compra || b.date);
-        const descA = a.description?.toLowerCase() || '';
-        const descB = b.description?.toLowerCase() || '';
-        switch (sortOrder) {
-            case 'antigas': return dateA - dateB;
-            case 'a-z': return descA.localeCompare(descB);
-            case 'z-a': return descB.localeCompare(descA);
-            default: return dateB - dateA;
-        }
-    });
+          const searchTermLower = searchTerm.toLowerCase();
+          const normalizedSearchTermForValue = searchTerm.replace(',', '.');
+          return (d.description?.toLowerCase().includes(searchTermLower) || d.id.toString().includes(searchTerm) || d.despesa_id?.toString().includes(searchTerm) || d.amount?.toString().includes(normalizedSearchTermForValue));
+        }) : filtradoPorParcelamento;
         
+    const sorted = [...filtered].sort((a, b) => {
+      const dateA = new Date(a.date || a.data_compra);
+      const dateB = new Date(b.date || b.data_compra);
+      const descA = a.description?.toLowerCase() || '';
+      const descB = b.description?.toLowerCase() || '';
+      switch (sortOrder) {
+        case 'antigas': return dateA - dateB;
+        case 'a-z': return descA.localeCompare(descB);
+        case 'z-a': return descB.localeCompare(descA);
+        default: return dateB - dateA;
+      }
+    });
+    
+    setCurrentPage(1); 
     return sorted;
-  }, [banco, selectedMonth, transactions, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
+  }, [banco, selectedMonth, transactions, variableExpenses, allParcelas, searchTerm, sortOrder, mostrarApenasParcelados]);
+
 
   const totalDespesasValor = useMemo(() => {
     return (despesasDoMes || []).reduce((sum, despesa) => sum + (despesa.amount || 0), 0);
@@ -131,30 +120,23 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
 
   const nextPage = () => setCurrentPage((current) => Math.min(current + 1, totalPages));
   const prevPage = () => setCurrentPage((current) => Math.max(current - 1, 1));
- 
+  
   const handleEditDespesa = (despesa) => {
-    const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || despesa;
+    const despesaOriginal = transactions.find(t => t.id === despesa.despesa_id) || 
+                           variableExpenses.find(v => v.id === despesa.despesa_id) || 
+                           despesa;
     onNavigate('editarDespesa', despesaOriginal);
   };
- 
+  
   const handleDeleteDespesa = (despesa) => {
-    // Se 'despesa.is_parcelado' é false, OU se 'despesa.parcelaInfo' existe, 
-    // significa que estamos lidando com um item da lista.
-    // Precisamos garantir que estamos deletando a despesa principal 'pai'.
-    
-    // Procura a despesa 'pai' no array de transações.
-    // 'despesa.despesa_id' existe se for uma parcela.
-    // 'despesa.id' é usado se for uma despesa avulsa (is_parcelado: false).
-    const despesaOriginal = transactions.find(t => t.id === (despesa.despesa_id || despesa.id));
-
-    // Se não encontrar (improvável, mas por segurança), usa o objeto 'despesa' atual
-    const objectToDelete = despesaOriginal || despesa;
-
+    const despesaOriginal = transactions.find(t => !t.is_fixed && t.id === despesa.despesa_id) ||
+                           variableExpenses.find(v => v.id === despesa.despesa_id) || 
+                           despesa;
     showModal('confirmation', {
       title: 'Confirmar Exclusão',
-      description: `Tem certeza que deseja excluir a despesa "${objectToDelete.description}"? Esta ação não pode ser desfeita.`,
+      description: `Tem certeza que deseja excluir a despesa "${despesaOriginal.description}"? Esta ação não pode ser desfeita.`,
       onConfirm: async () => { 
-        await deleteDespesa(objectToDelete); 
+        await deleteDespesa(despesaOriginal); 
         fetchData(); 
       }
     });
@@ -162,6 +144,18 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
 
   const cardTitle = mostrarApenasParcelados ? `Parcelas de ${banco.nome}` : `Transações de ${banco.nome}`;
   const transactionLabel = mostrarApenasParcelados ? ((despesasDoMes?.length || 0) === 1 ? 'parcela' : 'parcelas') : ((despesasDoMes?.length || 0) === 1 ? 'transação' : 'transações');
+
+  // <<< [ALTERAÇÃO] Função 'handlePrintPDF' removida daqui
+  
+  // <<< [NOVO] Esta função chama o modal
+  const handleOpenPdfModal = () => {
+    showModal('relatorioPDF', {
+      despesas: despesasDoMes, // Passa a lista COMPLETA de despesas
+      defaultTitle: `${cardTitle} - ${selectedMonth}`, // Passa o título padrão
+      totalValor: totalDespesasValor // Passa o valor total
+    });
+  };
+  // --- Fim da [NOVO]
 
   return (
     <motion.div
@@ -218,6 +212,14 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
                   <SelectItem value="z-a">Ordem Z-A</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {/* <<< [ALTERAÇÃO] Botão de Impressão agora chama o modal */}
+              <Button onClick={handleOpenPdfModal} variant="outline" size="icon" className="shrink-0">
+                <Printer className="h-4 w-4" />
+                <span className="sr-only">Imprimir PDF</span>
+              </Button>
+              {/* --- Fim da Alteração --- */}
+
               <Button onClick={() => onNavigate('novaDespesa')} className="gap-2">
                 <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Despesa</span>
               </Button>
