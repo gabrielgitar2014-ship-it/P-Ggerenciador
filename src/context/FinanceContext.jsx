@@ -9,6 +9,7 @@ export function FinanceProvider({ children }) {
   const [error, setError] = useState(null);
   const [bancos, setBancos] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [variableExpenses, setVariableExpenses] = useState([]); // <<< ALTERAÇÃO AQUI: NOVO ESTADO
   const [allParcelas, setAllParcelas] = useState([]);
 
   // --- NOVO: estado de sincronização ---
@@ -45,16 +46,13 @@ export function FinanceProvider({ children }) {
         { id: 4, nome: 'PIX', bandeira: 'pix', cor: 'bg-emerald-500', ultimos_digitos: '', tipo: 'Transferência' },
       ];
 
-      // Juntando dados da tabela 'transactions' (fixas, rendas, pix) e 'despesas' (parceladas)
-      const todasTransacoes = [
-        ...(transactionsRes.data || []),
-        ...(despesasRes.data || []),
-      ];
-
+      // <<< ALTERAÇÃO AQUI: SEPARAÇÃO DOS DADOS >>>
       setBancos(bancosData);
-      setTransactions(todasTransacoes);
+      setTransactions(transactionsRes.data || []); // Apenas transações (fixas e rendas)
+      setVariableExpenses(despesasRes.data || []); // Apenas despesas variáveis (pais das parcelas)
       setAllParcelas(parcelasRes.data || []);
       console.log('[FinanceContext.fetchData] OK: estado atualizado.');
+
     } catch (err) {
       setError(err.message);
       console.error('[FinanceContext.fetchData] ERRO:', err);
@@ -62,7 +60,7 @@ export function FinanceProvider({ children }) {
       setLoading(false);
       console.groupEnd();
     }
-  }, []); // fetchData é estável
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -98,9 +96,7 @@ export function FinanceProvider({ children }) {
     }
   }, [fetchData]);
 
-  // --- INÍCIO DA CORREÇÃO (useCallback) ---
-
-  const saveIncome = useCallback(async (incomeData) => {
+  const saveIncome = async (incomeData) => {
     try {
       const isEdit = !!incomeData.id;
       let result;
@@ -128,9 +124,9 @@ export function FinanceProvider({ children }) {
       console.error("Erro ao salvar renda:", err);
       throw err;
     }
-  }, [fetchData]); // Adiciona fetchData como dependência
+  };
 
-  const saveFixedExpense = useCallback(async (expenseData) => {
+  const saveFixedExpense = async (expenseData) => {
     console.groupCollapsed('[FinanceContext.saveFixedExpense] start');
     try {
       console.info('[FinanceContext.saveFixedExpense] payload recebido:', expenseData);
@@ -268,9 +264,9 @@ export function FinanceProvider({ children }) {
       }
       console.groupEnd();
     }
-  }, [fetchData]); // Adiciona fetchData como dependência
+  };
 
-  const toggleFixedExpensePaidStatus = useCallback(async (transactionId, newPaidStatus) => {
+  const toggleFixedExpensePaidStatus = async (transactionId, newPaidStatus) => {
     console.log(`[FinanceContext] Atualizando status de pagamento para ${newPaidStatus} no ID: ${transactionId}`);
     try {
       const { data, error } = await supabase
@@ -300,9 +296,9 @@ export function FinanceProvider({ children }) {
       await fetchData(); 
       throw err;
     }
-  }, [fetchData]); // Adiciona fetchData como dependência
+  };
 
-  const deleteDespesa = useCallback(async (despesaObject) => {
+  const deleteDespesa = async (despesaObject) => {
     console.groupCollapsed('[FinanceContext.deleteDespesa] start');
     console.log('[FinanceContext] Função deleteDespesa chamada com o objeto:', despesaObject);
 
@@ -314,21 +310,18 @@ export function FinanceProvider({ children }) {
     }
 
     try {
-      // Itens da tabela 'transactions' (Fixas e PIX/Avulsas)
-      if (despesaObject.is_fixed === true || (despesaObject.is_fixed === false && despesaObject.is_parcelado === false)) {
-        console.log(`[FinanceContext] Rota: Despesa Fixa ou Avulsa. Deletando da tabela 'transactions' com id: ${despesaObject.id}`);
+      if (despesaObject.is_fixed === true) {
+        console.log(`[FinanceContext] Rota: Despesa Fixa. Deletando da tabela 'transactions' com id: ${despesaObject.id}`);
         const { error } = await supabase.from('transactions').delete().eq('id', despesaObject.id);
         if (error) {
-          console.error('[FinanceContext] ERRO do Supabase ao deletar despesa (transactions):', error);
+          console.error('[FinanceContext] ERRO do Supabase ao deletar despesa fixa:', error);
           alert(`Erro do Supabase: ${error.message}`);
         } else {
-          console.log('[FinanceContext] Despesa (transactions) deletada com sucesso.');
+          console.log('[FinanceContext] Despesa fixa deletada com sucesso.');
         }
-      } 
-      // Itens da tabela 'despesas' (Parceladas)
-      else {
+      } else {
         const despesaIdParaExcluir = despesaObject.despesa_id || despesaObject.id;
-        console.log(`[FinanceContext] Rota: Despesa Variável Parcelada. ID principal para exclusão: ${despesaIdParaExcluir}`);
+        console.log(`[FinanceContext] Rota: Despesa Variável. ID principal para exclusão: ${despesaIdParaExcluir}`);
 
         if (!despesaIdParaExcluir) {
           console.error('[FinanceContext] ERRO: Não foi possível determinar o ID principal da despesa.', despesaObject);
@@ -367,48 +360,45 @@ export function FinanceProvider({ children }) {
       }
       console.groupEnd();
     }
-  }, [fetchData]); // Adiciona fetchData como dependência
-
+  };
   
-  const getSaldoPorBanco = useCallback((banco, selectedMonth) => {
-    const bancoNomeLowerCase = banco.nome?.toLowerCase();
 
-    // 1. Filtrando despesas fixas (da tabela 'transactions')
+  // <<< [INÍCIO DA CORREÇÃO] >>>
+  // Esta é a versão da função que previne a contagem duplicada.
+  // Ela NÃO busca mais em 'variableExpenses' por despesas únicas.
+  // A tabela 'allParcelas' é a única fonte de despesas variáveis.
+  const getSaldoPorBanco = (banco, selectedMonth) => {
+    // 1. Pega despesas fixas do mês para o banco (da tabela 'transactions')
     const despesasFixasDoMes = transactions.filter(
       (t) =>
-        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase &&
+        t.metodo_pagamento?.toLowerCase() === banco.nome?.toLowerCase() &&
         t.type === 'expense' &&
         t.is_fixed === true &&
         t.date?.startsWith(selectedMonth)
     );
 
-    // 2. Filtrando despesas principais (Pais de Parcelas da 'despesas' e PIX da 'transactions')
-    const despesasPrincipaisDoBanco = transactions.filter(
-      (t) => 
-        t.metodo_pagamento?.toLowerCase() === bancoNomeLowerCase && 
-        !t.is_fixed // Pega TODAS que não são fixas (pais de parcelas E avulsas/PIX)
+    // 2. Pega as despesas variáveis principais que pertencem ao banco (da tabela 'despesas')
+    // Isso é usado apenas para mapear o ID
+    const despesasPrincipaisDoBanco = variableExpenses.filter(
+      (d) => d.metodo_pagamento?.toLowerCase() === banco.nome?.toLowerCase()
     );
-    
-    // 3. Pega os IDs de TODAS as despesas variáveis (pais/avulsas) do banco
-    // (Conforme a regra, todas geram 'parcelas', mesmo as de 1x)
-    const idsDespesasVariaveis = despesasPrincipaisDoBanco.map(d => d.id);
-        
-    // 4. Filtrando PARCELAS (da tabela 'parcelas')
-    // Busca todas as parcelas (incluindo as de 1x) que pertencem a essas despesas principais
+    const idsDespesasVariaveis = despesasPrincipaisDoBanco.map((d) => d.id);
+
+    // 3. Filtra as parcelas do mês que correspondem a essas despesas variáveis
+    // Esta é agora a ÚNICA fonte de despesas variáveis (incluindo 1/1)
     const parcelasVariaveisDoMes = allParcelas.filter(
       (p) => idsDespesasVariaveis.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth)
     );
 
-    // 5. Somando os tipos de despesa (Fixas + Parcelas)
+    // 4. Soma os totais
     const totalFixo = despesasFixasDoMes.reduce((acc, despesa) => acc - (Number(despesa.amount) || 0), 0);
-    const totalVariavelParcelada = parcelasVariaveisDoMes.reduce((acc, parcela) => acc - (Number(parcela.amount) || 0), 0);
+    const totalVariavel = parcelasVariaveisDoMes.reduce((acc, parcela) => acc - (Number(parcela.amount) || 0), 0);
     
-    // Retorna apenas a soma das fixas e das parcelas (sem `totalVariavelAvulsa`)
-    return totalFixo + totalVariavelParcelada;
-  }, [transactions, allParcelas]); // Adiciona dependências de estado
-  
-  // --- FIM DA CORREÇÃO ---
-  
+    // 5. Retorna a soma correta (totalUnico foi removido)
+    return totalFixo + totalVariavel;
+  };
+  // <<< [FIM DA CORREÇÃO] >>>
+
 
   const value = useMemo(() => ({
     loading,
@@ -416,6 +406,7 @@ export function FinanceProvider({ children }) {
     setError,
     fetchData,
     transactions,
+    variableExpenses, // <<< ALTERAÇÃO AQUI: EXPORTANDO O NOVO ESTADO
     allParcelas,
     bancos,
     getSaldoPorBanco,
@@ -429,11 +420,10 @@ export function FinanceProvider({ children }) {
     lastSyncedAt,
     syncNow,
   }), [
-    loading, error, fetchData, transactions, allParcelas, bancos,
+    loading, error, fetchData, transactions, variableExpenses, allParcelas, bancos, // <<< ALTERAÇÃO AQUI
     saveFixedExpense, saveIncome, deleteDespesa, getSaldoPorBanco,
     isSyncing, lastSyncedAt, syncNow,
-    toggleFixedExpensePaidStatus 
-  ]); // As dependências aqui agora são estáveis
+  ]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
@@ -444,5 +434,4 @@ export const useFinance = () => {
     throw new Error('useFinance deve ser usado dentro de um FinanceProvider');
   }
   return context;
-
 };
