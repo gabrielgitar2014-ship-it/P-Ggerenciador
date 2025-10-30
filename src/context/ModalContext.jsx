@@ -9,11 +9,15 @@ import IncomeListModal from '../components/modals/IncomeListModal';
 import NewFixedExpenseModal from '../components/modals/NewFixedExpenseModal';
 import DespesasDetalhesModal from '../components/modals/DespesasDetalhesModal';
 import TransactionDetailModal from '../components/modals/TransactionDetailModal';
+import RelatorioPDFModal from '../components/RelatorioPDFModal'; 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+// <<< [NOVO] 1. Importe o 'Dialog' de shadcn/ui
+import { Dialog } from '@/components/ui/dialog';
+// --- Fim da Alteração
 
 const modalMap = {
   novaDespesa: NovaDespesaModal,
@@ -22,6 +26,7 @@ const modalMap = {
   newFixedExpense: NewFixedExpenseModal,
   despesaDetalhes: DespesasDetalhesModal,
   transactionDetail: TransactionDetailModal,
+  relatorioPDF: RelatorioPDFModal,
 };
 
 const ModalContext = createContext();
@@ -33,8 +38,7 @@ export function ModalProvider({ children }) {
   const hideModal = () => setModal({ type: null, props: {} });
 
   const renderModal = () => {
-    // --- LÓGICA DO MODAL DE CONFIRMAÇÃO ---
-    // Este bloco agora renderiza o AlertDialog quando o tipo é 'confirmation'
+    // --- LÓGICA DO MODAL DE CONFIRMAÇÃO (Permanece igual) ---
     if (modal.type === 'confirmation') {
       const { title, description, confirmText, onConfirm } = modal.props;
       return (
@@ -48,7 +52,6 @@ export function ModalProvider({ children }) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={hideModal}>Cancelar</AlertDialogCancel>
-              {/* ESTA É A LINHA MAIS IMPORTANTE: onClick executa a função onConfirm */}
               <AlertDialogAction onClick={onConfirm}>
                 {confirmText || 'Confirmar'}
               </AlertDialogAction>
@@ -62,7 +65,16 @@ export function ModalProvider({ children }) {
     const ModalComponent = modalMap[modal.type];
     if (!ModalComponent) return null;
     
-    return <ModalComponent isOpen={true} onClose={hideModal} {...modal.props} />;
+    // <<< [CORREÇÃO] 2. Envolva o ModalComponent com o <Dialog>
+    // Nós controlamos o estado de abertura com a prop 'open'
+    // e passamos o 'hideModal' para o 'onOpenChange' para que
+    // o 'X' e o 'DialogClose' (do RelatorioPDFModal) funcionem.
+    return (
+      <Dialog open={true} onOpenChange={hideModal}>
+        <ModalComponent {...modal.props} />
+      </Dialog>
+    );
+    // --- Fim da Correção
   };
 
   return (
