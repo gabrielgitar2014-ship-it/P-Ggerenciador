@@ -74,7 +74,7 @@ export function ModalProvider({ children }) {
         <ModalComponent {...modal.props} onClose={hideModal}
       </Dialog>
     );
-    // --- Fim da Correção
+   
   };
 
   return (
@@ -86,4 +86,5 @@ export function ModalProvider({ children }) {
 }
 
 export const useModal = () => useContext(ModalContext);
+
 
