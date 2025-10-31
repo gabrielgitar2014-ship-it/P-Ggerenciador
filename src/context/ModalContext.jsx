@@ -15,7 +15,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-// <<< [NOVO] 1. Importe o 'Dialog' de shadcn/ui
 import { Dialog } from '@/components/ui/dialog';
 // --- Fim da Alteração
 
@@ -65,13 +64,13 @@ export function ModalProvider({ children }) {
     const ModalComponent = modalMap[modal.type];
     if (!ModalComponent) return null;
     
-    // <<< CORREÇÃO: Passando a função hideModal para a prop onClose >>>
+    // CORREÇÃO FINAL: Passa 'onClose' para o componente, e o <Dialog> gerencia o fechar externo.
     return (
       <Dialog open={true} onOpenChange={hideModal}>
+        {/* Usamos o 'asChild' para que o ModalComponent atue como o 'DialogContent' */}
         <ModalComponent {...modal.props} onClose={hideModal} /> 
       </Dialog>
     );
-    // --- Fim da Correção
   };
 
   return (
