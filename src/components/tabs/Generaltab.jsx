@@ -118,12 +118,15 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
               icon={ArrowUp} 
               colorClass="text-green-500" 
               loading={loading}
-              onClick={() => showModal('listaRendas', { 
-                  incomes: monthlyIncomes, 
-                  onEdit: handleEditIncome,
-                  onAddNew: handleAddNewIncome
-              })} 
-              isClickable={true} // <-- CORREÇÃO: Adicionado para garantir que o modal de renda abra.
+              onClick={() => {
+                  console.log("CLIQUE CAPTURADO: Tentando abrir modal 'listaRendas'..."); // <-- CONSOLE.LOG ADICIONADO PARA DIAGNÓSTICO
+                  showModal('listaRendas', { 
+                      incomes: monthlyIncomes, 
+                      onEdit: handleEditIncome,
+                      onAddNew: handleAddNewIncome
+                  });
+              }} 
+              isClickable={true} // <-- CORREÇÃO: Adicionado para garantir o clique
             />
             <SummaryCard 
               size="small"
