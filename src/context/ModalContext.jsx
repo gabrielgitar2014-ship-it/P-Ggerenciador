@@ -65,16 +65,13 @@ export function ModalProvider({ children }) {
     const ModalComponent = modalMap[modal.type];
     if (!ModalComponent) return null;
     
-    // <<< [CORREÇÃO] 2. Envolva o ModalComponent com o <Dialog>
-    // Nós controlamos o estado de abertura com a prop 'open'
-    // e passamos o 'hideModal' para o 'onOpenChange' para que
-    // o 'X' e o 'DialogClose' (do RelatorioPDFModal) funcionem.
+    // <<< CORREÇÃO: Passando a função hideModal para a prop onClose >>>
     return (
       <Dialog open={true} onOpenChange={hideModal}>
-        <ModalComponent {...modal.props} onClose={hideModal}
+        <ModalComponent {...modal.props} onClose={hideModal} /> 
       </Dialog>
     );
-   
+    // --- Fim da Correção
   };
 
   return (
@@ -86,5 +83,3 @@ export function ModalProvider({ children }) {
 }
 
 export const useModal = () => useContext(ModalContext);
-
-
