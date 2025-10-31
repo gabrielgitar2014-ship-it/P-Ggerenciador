@@ -71,7 +71,7 @@ export function ModalProvider({ children }) {
     // o 'X' e o 'DialogClose' (do RelatorioPDFModal) funcionem.
     return (
       <Dialog open={true} onOpenChange={hideModal}>
-        <ModalComponent {...modal.props} />
+        <ModalComponent {...modal.props} onClose={hideModal}
       </Dialog>
     );
     // --- Fim da Correção
@@ -86,3 +86,4 @@ export function ModalProvider({ children }) {
 }
 
 export const useModal = () => useContext(ModalContext);
+
