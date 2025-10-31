@@ -6,9 +6,11 @@ import { supabase } from '../../supabaseClient';
 const formatCurrency = (value) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value || 0);
 
-export default function IncomeListModal({ isOpen, onClose, incomes, onEdit, onSave, onRefresh, onAddNew }) {
+// A prop 'isOpen' permanece na assinatura para evitar erros caso seja passada em outro contexto,
+// mas a lógica de verificação interna foi removida.
+export default function IncomeListModal({ isOpen, onClose, incomes, onEdit, onSave, onRefresh, onAddNew }) { 
 
-  if (!isOpen) return null;
+  // >>> CORREÇÃO: A linha "if (!isOpen) return null;" foi removida. <<<
 
   const handleDelete = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir esta renda? Esta ação é permanente.")) {
