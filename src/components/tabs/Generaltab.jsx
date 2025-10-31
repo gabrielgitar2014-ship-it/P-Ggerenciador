@@ -123,6 +123,7 @@ export default function GeneralTab({ selectedMonth, parcelasDoMes, onNavigate })
                   onEdit: handleEditIncome,
                   onAddNew: handleAddNewIncome
               })} 
+              isClickable={true} // <-- CORREÇÃO: Adicionado para garantir que o modal de renda abra.
             />
             <SummaryCard 
               size="small"
