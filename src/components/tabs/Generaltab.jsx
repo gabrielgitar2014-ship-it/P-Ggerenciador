@@ -324,7 +324,7 @@ export default function GeneralTab({ selectedMonth, onNavigate, onOpenNovaDespes
 
         {/* Coluna Direita: Insights da IA */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 px-2">Insights da IA</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 px-2"> Dicas do GEN</h3>
           {loading ? (
             <>
               <div className="bg-blue-50 dark:bg-blue-900/50 p-4 rounded-lg h-20 animate-pulse" />
