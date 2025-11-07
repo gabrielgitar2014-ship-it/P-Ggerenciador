@@ -285,7 +285,7 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid w-full items-center gap-1.5">
+              <div className="grid w-lg items-center gap-1.5">
                 <Label htmlFor="data_compra">Data da compra</Label>
                 <Input id="data_compra" name="data_compra" type="date" value={formData.data_compra} onChange={handleInputChange} required />
               </div>
@@ -325,4 +325,5 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
       </form>
     </DialogContent>
   );
+
 }
