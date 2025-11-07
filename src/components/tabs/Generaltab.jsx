@@ -60,7 +60,7 @@ function ResumoCard({ type, valor, onClick }) {
     >
       <div>
         <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{config.label}</span>
-        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
           {/* Lógica de correção: Se for 'bancos', mostra texto descritivo, ignora o valor */}
           {type === 'bancos' 
             ? 'Cartões'
