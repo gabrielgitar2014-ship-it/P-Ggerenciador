@@ -18,7 +18,7 @@ import WelcomeScreen from './components/WelcomeScreen';
 // Imports de Autenticação e Chatbot
 import { supabase } from './supabaseClient';
 import AuthPage from './pages/AuthPages';
-import Chatbot from './components/Chatbot';
+import Chatbot from './components/ChatBot';
 
 // --- [INÍCIO DA MUDANÇA] ---
 // Imports para o novo modal
