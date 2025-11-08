@@ -1,6 +1,5 @@
 // src/components/modals/NovaDespesaModal.jsx
-// (Versão 3.1 - Adicionado scroll na lista de Categorias)
-// <<< [CORRIGIDO] Força os valores de categoria a serem 'string' para consistência
+// (Versão 3.2 - Corrigido handleSubmit para usar o Contexto)
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
@@ -41,46 +40,26 @@ const getCurrentMonthISO = () => {
   return `${y}-${m}`;
 };
 
-const toFirstDay = (isoDate) => {
-  const [year, month] = isoDate.split('-');
-  return `${year}-${month}-01`;
-};
+// <<< [CORREÇÃO] Esta função não é mais necessária no Modal
+// const toFirstDay = (isoDate) => {
+//   const [year, month] = isoDate.split('-');
+//   return `${year}-${month}-01`;
+// };
 
 const toMonthInput = (d) => (d ? String(d).slice(0, 7) : getCurrentMonthISO());
 
-const isStartAfterPurchaseMonth = (mesInicioYYYYMMDD, dataCompraYYYYMMDD) => {
-  if (!mesInicioYYYYMMDD || !dataCompraYYYYMMDD) return false;
-  const a = new Date(`${String(mesInicioYYYYMMDD).slice(0,7)}-01T00:00:00`);
-  const b = new Date(`${String(dataCompraYYYYMMDD).slice(0,7)}-01T00:00:00`);
-  return a > b;
-};
+// <<< [CORREÇÃO] Esta função não é mais necessária no Modal
+// const isStartAfterPurchaseMonth = (mesInicioYYYYMMDD, dataCompraYYYYMMDD) => {
+//   if (!mesInicioYYYYMMDD || !dataCompraYYYYMMDD) return false;
+//   const a = new Date(`${String(mesInicioYYYYMMDD).slice(0,7)}-01T00:00:00`);
+//   const b = new Date(`${String(dataCompraYYYYMMDD).slice(0,7)}-01T00:00:00`);
+//   return a > b;
+// };
 
 const round2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
 
-const buildParcelas = ({ despesaId, total, n, startDateYYYYMMDD }) => {
-  const parcelas = [];
-  const per = round2(total / n);
-  const partial = round2(per * (n - 1));
-  const last = round2(total - partial);
-  const [year, month, day] = startDateYYYYMMDD.split('-').map(Number);
-  const start = new Date(year, month - 1, 1); 
-  
-  for (let k = 1; k <= n; k++) {
-    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    d.setMonth(d.getMonth() + (k - 1));
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = '01';
-    parcelas.push({
-      despesa_id: despesaId,
-      numero_parcela: k,
-      amount: k < n ? per : last,
-      data_parcela: `${yyyy}-${mm}-${dd}`,
-      paga: false,
-    });
-  }
-  return parcelas;
-};
+// <<< [CORREÇÃO] Esta função não é mais necessária no Modal
+// (buildParcelas agora vive dentro do FinanceContext)
 
 const getInitialState = (despesaParaEditar = null) => {
     if (despesaParaEditar) {
@@ -92,8 +71,8 @@ const getInitialState = (despesaParaEditar = null) => {
         data_compra: despesaParaEditar.data_compra ?? getTodayLocalISO(),
         isParcelado: parcelado,
         qtd_parcelas: parcelado ? (despesaParaEditar.qtd_parcelas ?? 2) : '',
-        mes_inicio_cobranca: toMonthInput(despesaParaEditar.mes_inicio_cobranca),
-        // <<< [CORREÇÃO 1] Garante que o estado inicial seja string
+        // <<< [CORREÇÃO] Renomeado para 'startDate' para bater com o Contexto
+        startDate: toMonthInput(despesaParaEditar.mes_inicio_cobranca),
         categoria_id: String(despesaParaEditar.categoria_id || ''), 
       };
     }
@@ -104,13 +83,15 @@ const getInitialState = (despesaParaEditar = null) => {
       data_compra: getTodayLocalISO(),
       isParcelado: false,
       qtd_parcelas: '',
-      mes_inicio_cobranca: getCurrentMonthISO(),
+      // <<< [CORREÇÃO] Renomeado para 'startDate' para bater com o Contexto
+      startDate: getCurrentMonthISO(),
       categoria_id: '',
     };
   };
 
 /* ====================== Componente ========================= */
 export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
+  // <<< [CORREÇÃO] Agora usamos 'saveVariableExpense'
   const { saveVariableExpense, categorias } = useFinance(); 
   
   const [formData, setFormData] = useState(() => getInitialState(despesaParaEditar));
@@ -137,20 +118,19 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
   };
   
   const handleSelectChange = (name) => (value) => {
-      // <<< [CORREÇÃO 2] Garante que o valor salvo no estado seja string
       setFormData(p => ({ ...p, [name]: String(value) }));
-      
       if (name === 'categoria_id' && value) {
           setCategoryError('');
       }
   };
 
-  
+  // <<< [INÍCIO DA CORREÇÃO GERAL DO HANDLESUBMIT] ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSaving) return;
     setError('');
     
+    // 1. VALIDAÇÃO DE CATEGORIA
     if (!formData.categoria_id) {
         setCategoryError('A despesa deve ser categorizada.');
         return;
@@ -159,60 +139,63 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
 
     try {
       setIsSaving(true);
-      // ... (lógica de submit)
-      // No 'dadosParaSalvar', 'categoria_id' será uma string, 
-      // mas o Supabase e o Postgres convertem automaticamente para BIGINT/NUMERIC.
-      // Se não converterem, mude 'categoria_id: formData.categoria_id'
-      // para 'categoria_id: Number(formData.categoria_id)' abaixo.
+      
+      // 2. Prepara os dados para o CONTEXTO
       const is_parcelado = !!formData.isParcelado;
       const qtd_parcelas = is_parcelado ? Math.max(2, parseInt(formData.qtd_parcelas || '2', 10)) : 1;
-      const mes_inicio_db = toFirstDay(formData.mes_inicio_cobranca);
       const amountNumber = round2(parseFloat(String(formData.amount).replace(',', '.')) || 0);
 
       if (!amountNumber || amountNumber <= 0) throw new Error('Informe um valor (amount) válido.');
       if (is_parcelado && (!qtd_parcelas || qtd_parcelas < 2)) throw new Error('Informe a quantidade de parcelas (>= 2).');
       
-      const deviceId = getOrSetDeviceId();
-
       const dadosParaSalvar = {
         amount: amountNumber,
         description: formData.description?.trim(),
         metodo_pagamento: formData.metodo_pagamento,
         data_compra: formData.data_compra, 
-        is_parcelado, qtd_parcelas,
-        mes_inicio_cobranca: mes_inicio_db,
-        inicia_proximo_mes: isStartAfterPurchaseMonth(mes_inicio_db, formData.data_compra),
-        device_id: deviceId,
-        categoria_id: Number(formData.categoria_id), // Converte para Número no envio
+        is_parcelado, 
+        qtd_parcelas,
+        startDate: formData.startDate, // Passa o AAAA-MM
+        categoria_id: Number(formData.categoria_id), // Converte de volta para número
       };
       
-      // ... (Resto da lógica de submit)
-      let savedData;
+      // 3. Se for Edição, ainda não implementamos no Contexto, então usamos o método antigo
       if (isEdit) {
-        const { data, error } = await supabase.from('despesas').update(dadosParaSalvar).eq('id', despesaParaEditar.id).select().single();
+        // (A lógica de edição manual permanece por enquanto)
+        console.warn("Ainda usando lógica manual para EDIÇÃO.");
+        // Converte 'startDate' de volta para 'mes_inicio_cobranca'
+        const dadosUpdate = {
+            ...dadosParaSalvar,
+            mes_inicio_cobranca: toFirstDay(dadosParaSalvar.startDate),
+            inicia_proximo_mes: isStartAfterPurchaseMonth(toFirstDay(dadosParaSalvar.startDate), dadosParaSalvar.data_compra)
+        };
+        delete dadosUpdate.startDate; // Limpa o campo que não existe no DB
+        
+        const { data: savedData, error } = await supabase.from('despesas').update(dadosUpdate).eq('id', despesaParaEditar.id).select().single();
         if (error) throw error;
-        savedData = data;
-      } else {
-        const { data, error } = await supabase.from('despesas').insert(dadosParaSalvar).select().single();
-        if (error) throw error;
-        savedData = data;
-      }
-      
-      const parcelas = buildParcelas({ despesaId: savedData.id, total: amountNumber, n: qtd_parcelas, startDateYYYYMMDD: mes_inicio_db });
-      if (isEdit) {
+        
+        const parcelas = buildParcelas({ despesaId: savedData.id, total: amountNumber, n: qtd_parcelas, startDateYYYYMMDD: toFirstDay(formData.startDate) });
         await supabase.from('parcelas').delete().eq('despesa_id', savedData.id);
+        const { error: insErr } = await supabase.from('parcelas').insert(parcelas);
+        if (insErr) throw insErr;
+        
+      } else {
+        // 4. Se for NOVO, chama o CONTEXTO
+        console.log("Usando 'saveVariableExpense' do Contexto...");
+        const result = await saveVariableExpense(dadosParaSalvar);
+        if (!result.ok) throw result.error;
       }
-      const { error: insErr } = await supabase.from('parcelas').insert(parcelas);
-      if (insErr) throw insErr;
       
       alert(isEdit ? 'Despesa atualizada com sucesso.' : 'Despesa criada com sucesso.');
-      onClose();
+      onClose(); // Fecha o modal
+      
     } catch (err) {
       alert(`Erro ao salvar: ${err?.message || err}`);
     } finally {
       setIsSaving(false);
     }
   };
+  // <<< [FIM DA CORREÇÃO GERAL DO HANDLESUBMIT] ---
 
 
   return (
@@ -252,14 +235,13 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
                 </Label>
                 <Select 
                     value={formData.categoria_id} 
-                    onValueChange={(value) => handleSelectChange('categoria_id')(value)}
+                    onValueChange={(value) => handleSelectChange('categoria_id')(value)} 
                 >
                     <SelectTrigger id="categoria_id" className={categoryError ? "border-red-500" : ""}>
                         <SelectValue placeholder="Selecione a Categoria" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto"> 
                         {(categorias || []).map(cat => (
-                            // <<< [CORREÇÃO 3] Garante que o valor da opção seja string
                             <SelectItem key={cat.id} value={String(cat.id)}>
                                 {cat.nome}
                             </SelectItem>
@@ -295,8 +277,8 @@ export default function NovaDespesaModal({ onClose, despesaParaEditar }) {
                 <Input id="data_compra" name="data_compra" type="date" value={formData.data_compra} onChange={handleInputChange} required />
               </div>
               <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="mes_inicio_cobranca">Início da Cobrança</Label>
-                <Input id="mes_inicio_cobranca" name="mes_inicio_cobranca" type="month" value={formData.mes_inicio_cobranca} onChange={handleInputChange} required />
+                <Label htmlFor="startDate">Início da Cobrança</Label> {/* <<< Corrigido */}
+                <Input id="startDate" name="startDate" type="month" value={formData.startDate} onChange={handleInputChange} required /> {/* <<< Corrigido */}
               </div>
             </div>
 
