@@ -1,12 +1,11 @@
 // src/context/FinanceContext.jsx
 // (Versão "Escape Hatch" - v7, com suporte completo a todas as 6 tabelas)
-// <<< [CORRIGIDO] Adicionada a função 'saveVariableExpense' e helpers
 
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 
 // Helper para gerar um ID de série único (simulação de UUID)
-const generateUUID = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+const generateUUID = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36); 
 
 const FinanceContext = createContext();
 
@@ -19,9 +18,9 @@ export function FinanceProvider({ children }) {
   const [variableExpenses, setVariableExpenses] = useState([]);
   const [allParcelas, setAllParcelas] = useState([]);
   const [insights, setInsights] = useState([]);
-  const [categorias, setCategorias] = useState([]);
+  const [categorias, setCategorias] = useState([]); 
   // NOVO ESTADO: Adiciona a fila de embeddings
-  const [embeddingQueue, setEmbeddingQueue] = useState([]);
+  const [embeddingQueue, setEmbeddingQueue] = useState([]); 
 
   // --- Estado de Sincronização ---
   const [isSyncing, setIsSyncing] = useState(false);
@@ -74,6 +73,7 @@ export function FinanceProvider({ children }) {
       setEmbeddingQueue(embedding_queue || []); // NOVO: Define o estado da fila
 
       console.log('[FinanceContext.fetchData] OK: estado atualizado.');
+
     } catch (err) {
       setError(err.message);
       console.error('[FinanceContext.fetchData] ERRO:', err);
@@ -81,7 +81,7 @@ export function FinanceProvider({ children }) {
       setLoading(false);
       console.groupEnd();
     }
-  }, []);
+  }, []); 
 
   // Hook para buscar dados no carregamento
   useEffect(() => {
@@ -143,10 +143,12 @@ export function FinanceProvider({ children }) {
   // --- Função Salvar Despesa Fixa (Com Correções de Lógica e Categoria) ---
   const saveFixedExpense = async (expenseData) => {
     console.groupCollapsed('[FinanceContext.saveFixedExpense] start');
+    
     console.log("PAYLOAD RECEBIDO DO FORM (expenseData):", expenseData);
     
     try {
       console.info('[FinanceContext.saveFixedExpense] payload recebido:', expenseData);
+      
       const isEdit = !!expenseData?.id;
       
       // Usa o purchase_id existente ou gera um novo para a série
@@ -157,13 +159,13 @@ export function FinanceProvider({ children }) {
           ? expenseData.amount.replace(',', '.')
           : expenseData?.amount
       );
-      
       const metodo_pagamento = expenseData?.metodo_pagamento ?? expenseData?.bank ?? null;
       const due = Number(expenseData?.due_date ?? expenseData?.dueDate);
       const start = expenseData?.startDate;
       const dateFromPayload = expenseData?.date;
       
       const categoria_id = expenseData?.categoria_id || null;
+      
       const parseYM = (s) => (s ? s.split('-').slice(0, 2).map(Number) : []);
       const [startY, startM] = start ? parseYM(start) : (dateFromPayload ? parseYM(dateFromPayload) : []);
       const safeDate = dateFromPayload || (
@@ -186,7 +188,7 @@ export function FinanceProvider({ children }) {
           purchase_id: series_id, // ID da série fixa
         };
       };
-
+      
       const addMonths = (y, m, inc) => {
         const idx = y * 12 + (m - 1) + inc;
         const ny = Math.floor(idx / 12);
@@ -240,6 +242,7 @@ export function FinanceProvider({ children }) {
       }
       
       console.log("LINHAS GERADAS PARA INSERÇÃO (rows):", rows);
+
       console.info('[FinanceContext.saveFixedExpense] INSERT linhas:', rows.length);
       console.table(rows);
       
@@ -248,6 +251,7 @@ export function FinanceProvider({ children }) {
       if (error) throw error;
       
       return { ok: true, data, series_id };
+
     } catch (err) {
       setError(err?.message || String(err));
       console.error('[FinanceContext.saveFixedExpense] FALHA:', err);
@@ -255,19 +259,19 @@ export function FinanceProvider({ children }) {
     } finally {
       console.debug('[FinanceContext.saveFixedExpense] refetch após salvar…');
       try {
-        await fetchData();
+        await fetchData(); 
       } catch (refetchErr) {
         console.warn('[FinanceContext.saveFixedExpense] falha no refetch:', refetchErr);
       }
       console.groupEnd();
     }
   };
-
+  
   // --- FUNÇÃO: ATUALIZAR SÉRIE DE DESPESA FIXA (EDIÇÃO EM MASSA) ---
   const updateFixedExpenseSeries = async (transaction, expenseData, updateType) => {
     const seriesId = transaction.purchase_id;
     if (!seriesId) throw new Error('ID de série não encontrado para atualização em massa.');
-    
+
     const { amount, description, metodo_pagamento, categoria_id } = expenseData;
 
     let updateQuery = supabase
@@ -281,6 +285,7 @@ export function FinanceProvider({ children }) {
     }
     
     console.log(`[FinanceContext.updateFixedExpenseSeries] Atualizando série ${seriesId}. Tipo: ${updateType}.`);
+
     const { data, error } = await updateQuery.select('*');
 
     if (error) throw error;
@@ -288,97 +293,6 @@ export function FinanceProvider({ children }) {
     return data;
   };
 
-  // <<< [NOVO] FUNÇÃO PARA SALVAR DESPESA VARIÁVEL (A CAUSA DO BUG) >>>
-  // Esta função não existia e é necessária para atualizar o estado após adicionar uma despesa variável.
-  const saveVariableExpense = async (expenseData) => {
-    console.groupCollapsed('[FinanceContext.saveVariableExpense] start');
-    console.log("PAYLOAD RECEBIDO DO FORM (expenseData):", expenseData);
-
-    try {
-      // 1. Preparar a despesa principal
-      const totalAmount = Number(
-        typeof expenseData?.amount === 'string'
-          ? expenseData.amount.replace(',', '.')
-          : expenseData?.amount
-      );
-      const qtdParcelas = Number(expenseData.qtd_parcelas || 1);
-      const isParcelado = qtdParcelas > 1;
-
-      const despesaRow = {
-        description: (expenseData.description || '').trim(),
-        amount: totalAmount,
-        data_compra: expenseData.data_compra, // ex: '2025-11-07'
-        metodo_pagamento: expenseData.metodo_pagamento,
-        categoria_id: expenseData.categoria_id || null,
-        is_parcelado: isParcelado,
-        qtd_parcelas: qtdParcelas
-      };
-
-      console.log("[FinanceContext.saveVariableExpense] Inserindo na tabela 'despesas':", despesaRow);
-
-      // 2. Inserir na tabela 'despesas'
-      const { data: newDespesa, error: despesaError } = await supabase
-        .from('despesas')
-        .insert(despesaRow)
-        .select()
-        .single();
-
-      if (despesaError) throw despesaError;
-      if (!newDespesa) throw new Error('Falha ao criar a despesa principal.');
-
-      console.log("[FinanceContext.saveVariableExpense] Despesa principal criada, ID:", newDespesa.id);
-
-      // 3. Preparar as parcelas (conforme sua arquitetura, sempre há pelo menos 1 parcela)
-      const valorParcela = totalAmount / qtdParcelas;
-      let parcelasRows = [];
-      
-      // Helper para adicionar meses à data da compra (evita bugs de fuso horário)
-      const dataCompra = new Date(expenseData.data_compra + 'T12:00:00Z');
-
-      for (let i = 1; i <= qtdParcelas; i++) {
-        const dataParcela = new Date(dataCompra);
-        dataParcela.setUTCMonth(dataCompra.getUTCMonth() + (i - 1));
-        
-        // Formata a data para 'YYYY-MM-DD'
-        const dataParcelaStr = dataParcela.toISOString().split('T')[0];
-
-        parcelasRows.push({
-          despesa_id: newDespesa.id,
-          numero_parcela: i,
-          amount: valorParcela, // 'amount' da parcela individual
-          data_parcela: dataParcelaStr // 'data_parcela' é a data de vencimento da parcela
-        });
-      }
-
-      console.log(`[FinanceContext.saveVariableExpense] Inserindo ${parcelasRows.length} parcela(s) na tabela 'parcelas':`);
-      console.table(parcelasRows);
-
-      // 4. Inserir na tabela 'parcelas'
-      const { error: parcelasError } = await supabase
-        .from('parcelas')
-        .insert(parcelasRows);
-      
-      if (parcelasError) throw parcelasError;
-      
-      console.log("[FinanceContext.saveVariableExpense] OK: Despesa e parcelas salvas.");
-      return { ok: true, data: newDespesa };
-
-    } catch (err) {
-      setError(err?.message || String(err));
-      console.error('[FinanceContext.saveVariableExpense] FALHA:', err);
-      return { ok: false, error: err };
-    } finally {
-      // 5. [A CORREÇÃO] Chamar fetchData() para atualizar a UI
-      console.debug('[FinanceContext.saveVariableExpense] refetch após salvar…');
-      try {
-        await fetchData();
-      } catch (refetchErr) {
-        console.warn('[FinanceContext.saveVariableExpense] falha no refetch:', refetchErr);
-      }
-      console.groupEnd();
-    }
-  };
-  // <<< FIM DA NOVA FUNÇÃO >>>
 
   // --- FUNÇÃO DE DELEÇÃO ATUALIZADA ---
   const deleteDespesa = async (despesaObject, deleteType = 'single') => {
@@ -417,7 +331,7 @@ export function FinanceProvider({ children }) {
         // --- Lógica de exclusão de Despesa Variável (mantida) ---
         const despesaIdParaExcluir = despesaObject.despesa_id || despesaObject.id;
         console.log(`[FinanceContext] Rota: Despesa Variável. ID principal para exclusão: ${despesaIdParaExcluir}`);
-        
+
         if (!despesaIdParaExcluir) {
           console.error('[FinanceContext] ERRO: Não foi possível determinar o ID principal da despesa.', despesaObject);
           alert('Erro: Não foi possível identificar a despesa principal para excluir.');
@@ -449,7 +363,7 @@ export function FinanceProvider({ children }) {
     } finally {
       console.debug('[FinanceContext.deleteDespesa] refetch após delete…');
       try {
-        await fetchData();
+        await fetchData(); 
       } catch (refetchErr) {
         console.warn('[FinanceContext.deleteDespesa] falha no refetch:', refetchErr);
       }
@@ -457,13 +371,13 @@ export function FinanceProvider({ children }) {
     }
   };
 
+
   // --- Função de Alternar Pagamento (Sem mudanças) ---
   const toggleFixedExpensePaidStatus = async (transactionId, newPaidStatus) => {
     console.log(`[FinanceContext] Atualizando status de pagamento para ${newPaidStatus} no ID: ${transactionId}`);
     try {
       const { data, error } = await supabase
         .from('transactions').update({ paid: newPaidStatus }).eq('id', transactionId).select().single();
-      
       if (error) {
         console.error('[FinanceContext] Erro ao atualizar status de pagamento:', error);
         throw error;
@@ -471,19 +385,17 @@ export function FinanceProvider({ children }) {
       
       console.log('[FinanceContext] Status de pagamento atualizado com sucesso:', data);
       
-      // Atualização otimista do estado
       setTransactions(currentTransactions =>
         currentTransactions.map(t =>
           t.id === transactionId ? { ...t, paid: newPaidStatus } : t
         )
       );
-      
+
       return data;
 
     } catch (err) {
       console.error("Falha ao alterar status de pagamento:", err);
-      // Se a atualização otimista falhar, o refetch garante a consistência
-      await fetchData();
+      await fetchData(); 
       throw err;
     }
   };
@@ -497,20 +409,15 @@ export function FinanceProvider({ children }) {
         t.is_fixed === true &&
         t.date?.startsWith(selectedMonth)
     );
-    
     const despesasPrincipaisDoBanco = variableExpenses.filter(
       (d) => d.metodo_pagamento?.toLowerCase() === banco.nome?.toLowerCase()
     );
-    
     const idsDespesasVariaveis = despesasPrincipaisDoBanco.map((d) => d.id);
-    
     const parcelasVariaveisDoMes = allParcelas.filter(
       (p) => idsDespesasVariaveis.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth)
     );
-    
     const totalFixo = despesasFixasDoMes.reduce((acc, despesa) => acc - (Number(despesa.amount) || 0), 0);
     const totalVariavel = parcelasVariaveisDoMes.reduce((acc, parcela) => acc - (Number(parcela.amount) || 0), 0);
-    
     return totalFixo + totalVariavel;
   };
 
@@ -532,7 +439,6 @@ export function FinanceProvider({ children }) {
     saveFixedExpense,
     updateFixedExpenseSeries, 
     saveIncome,
-    saveVariableExpense, // <<< [NOVO] Adiciona a função ao contexto
     toggleFixedExpensePaidStatus,
     isSyncing,
     lastSyncedAt,
@@ -541,7 +447,6 @@ export function FinanceProvider({ children }) {
     loading, error, fetchData, transactions, variableExpenses, allParcelas, bancos,
     insights, categorias, embeddingQueue, // NOVO: Adicionado à dependência
     saveFixedExpense, saveIncome, deleteDespesa, getSaldoPorBanco, updateFixedExpenseSeries,
-    saveVariableExpense, // <<< [NOVO] Adiciona a função às dependências do useMemo
     isSyncing, lastSyncedAt, syncNow,
   ]);
 
