@@ -49,7 +49,7 @@ const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
             <TableCell className="font-medium">
               <div>{despesa.description || despesa.descricao}</div>
               <div className="text-xs text-muted-foreground flex items-center">
-                <span>{formatDate(despesa.data)}</span>
+                <span>{formatDate(despesa.data_compra)}</span>
                 
                 {despesa.parcelaInfo && (
                   <span className="ml-2 pl-2 border-l border-slate-200 dark:border-slate-700">
@@ -87,4 +87,5 @@ const ListaTransacoes = ({ transactions, onEdit, onDelete }) => {
 
 // ✅ ALTERAÇÃO AQUI: Adiciona a exportação padrão no final do arquivo
 export default ListaTransacoes;
+
 
