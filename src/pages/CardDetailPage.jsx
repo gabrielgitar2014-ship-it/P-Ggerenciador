@@ -8,11 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// <<< [ALTERAÇÃO] Imports de PDF removidos. Apenas o 'Printer' é necessário.
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
-// import jsPDF from 'jspdf'; // REMOVIDO
-// import autoTable from 'jspdf-autotable'; // REMOVIDO
-// --- Fim da Alteração
 
 import SearchBar from '../components/SearchBar';
 import { supabase } from '../supabaseClient';
@@ -37,7 +33,7 @@ const listContainerVariants = {
 
 const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
   const { getSaldoPorBanco, fetchData, deleteDespesa, transactions, variableExpenses, allParcelas } = useFinance();
-  const { showModal } = useModal(); // <--- 'showModal' já está disponível
+  const { showModal } = useModal(); 
   const { valuesVisible } = useVisibility();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +73,7 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
             id: p.id,
             date: p.data_parcela,
             parcelaInfo: parcelaInfo,
-            category: despesaPrincipal?.category || 'N/A' // <<< [BÔNUS] Adicionei a categoria
+            category: despesaPrincipal?.category || 'N/A'
         };
       });
 
@@ -144,18 +140,14 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
 
   const cardTitle = mostrarApenasParcelados ? `Parcelas de ${banco.nome}` : `Transações de ${banco.nome}`;
   const transactionLabel = mostrarApenasParcelados ? ((despesasDoMes?.length || 0) === 1 ? 'parcela' : 'parcelas') : ((despesasDoMes?.length || 0) === 1 ? 'transação' : 'transações');
-
-  // <<< [ALTERAÇÃO] Função 'handlePrintPDF' removida daqui
   
-  // <<< [NOVO] Esta função chama o modal
   const handleOpenPdfModal = () => {
     showModal('relatorioPDF', {
-      despesas: despesasDoMes, // Passa a lista COMPLETA de despesas
-      defaultTitle: `${cardTitle} - ${selectedMonth}`, // Passa o título padrão
-      totalValor: totalDespesasValor // Passa o valor total
+      despesas: despesasDoMes, 
+      defaultTitle: `${cardTitle} - ${selectedMonth}`, 
+      totalValor: totalDespesasValor 
     });
   };
-  // --- Fim da [NOVO]
 
   return (
     <motion.div
@@ -213,16 +205,16 @@ const CardDetailPage = ({ banco, onBack, onNavigate, selectedMonth }) => {
                 </SelectContent>
               </Select>
               
-              {/* <<< [ALTERAÇÃO] Botão de Impressão agora chama o modal */}
               <Button onClick={handleOpenPdfModal} variant="outline" size="icon" className="shrink-0">
                 <Printer className="h-4 w-4" />
                 <span className="sr-only">Imprimir PDF</span>
               </Button>
-              {/* --- Fim da Alteração --- */}
 
-              <Button onClick={() => onNavigate('novaDespesa')} className="gap-2">
+              {/* <<< [CORREÇÃO] O onClick foi alterado para usar showModal */}
+              <Button onClick={() => showModal('novaDespesa')} className="gap-2">
                 <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Despesa</span>
               </Button>
+              {/* --- Fim da Correção --- */}
             </div>
           </div>
         </CardHeader>
