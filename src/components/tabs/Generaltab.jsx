@@ -300,7 +300,7 @@ export default function GeneralTab({ selectedMonth, onNavigate }) {
             onClick={() => onNavigate('allExpenses')}
             className="text-sm text-slate-500 hover:text-blue-600 flex items-center transition-colors"
           >
-            Ver tudo <ChevronRight className="w-4 h-4 ml-0.5" />
+           
           </button>
         </div>
 
