@@ -12,7 +12,7 @@ import PwaUpdater from './components/PwaUpdater';
 import WelcomeScreen from './components/WelcomeScreen';
 import { supabase } from './supabaseClient';
 import AuthPage from './pages/AuthPages';
-import Chatbot from './components/Chatbot';
+import Chatbot from './components/ChatBot';
 import { Dialog } from '@/components/ui/dialog';
 import NovaDespesaModal from './components/modals/NovaDespesaModal';
 
