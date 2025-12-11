@@ -187,7 +187,7 @@ export function FinanceProvider({ children }) {
   // 4. Salvar Despesa Variável (Manual - NovaDespesaModal)
   // [MODIFICADO] Apenas insere a Despesa (Pai). O Trigger do Banco gera as Parcelas (Filhos).
   const saveVariableExpense = async (expenseData) => {
-    console.groupCollapsed('[FinanceContext.saveVariableExpense] start (DB Trigger Version)');
+    console.groupCollapsed('[FinanceContext.saveVariableExpense] start (User Override Mode)');
     try {
       const isEdit = !!expenseData.id;
       const totalAmount = Number(String(expenseData.amount).replace(',', '.'));
@@ -197,51 +197,52 @@ export function FinanceProvider({ children }) {
         b.nome.toLowerCase() === expenseData.metodo_pagamento?.toLowerCase()
       );
 
+      // Tratamento do Mês de Início (Override do Usuário)
+      // O Modal envia 'startDate' (ex: "2025-12-05T12:00...") quando o usuário confirma a fatura.
+      let mesInicioCobranca = null;
+      if (expenseData.startDate) {
+        const d = new Date(expenseData.startDate);
+        if (!isNaN(d.getTime())) {
+           const y = d.getFullYear();
+           const m = String(d.getMonth() + 1).padStart(2, '0');
+           mesInicioCobranca = `${y}-${m}`; // Formato "YYYY-MM"
+        }
+      }
+
       const despesaRow = {
         description: (expenseData.description || '').trim(),
         amount: totalAmount,
-        data_compra: expenseData.data_compra,
+        data_compra: expenseData.data_compra, 
         metodo_pagamento: expenseData.metodo_pagamento,
         categoria_id: expenseData.categoria_id || null,
         is_parcelado: qtdParcelas > 1,
         qtd_parcelas: qtdParcelas,
-        metodo_pagamento_id: bancoConfig?.id || null
+        metodo_pagamento_id: bancoConfig?.id || null,
+        mes_inicio_cobranca: mesInicioCobranca // <--- O CAMPO MÁGICO
       };
 
       if (isEdit) {
-        // Na edição, precisamos deletar parcelas antigas para o trigger (ou lógica manual) recriar?
-        // Como o trigger é AFTER INSERT, no update teríamos que ter um trigger de update também.
-        // SIMPLIFICAÇÃO: Delete e Insert (Hard Update) para garantir o trigger.
-        // Ou mantemos update manual. Para seguir a ordem "Garantir no banco", vamos assumir insert.
-        // Nota: O trigger só roda no INSERT. Se editar, a lógica SQL precisaria de um trigger de UPDATE.
-        
+        // Se editar, atualiza. O trigger não roda no update, 
+        // então se mudar a data, teria que ter lógica extra. 
+        // Assumindo edição simples de texto/valor por enquanto.
         await supabase.from('despesas').update(despesaRow).eq('id', expenseData.id);
-        // O Trigger NÃO roda no update. Se precisar recalcular parcelas na edição,
-        // o ideal seria deletar as parcelas filhas e chamar uma função RPC, ou manter a lógica JS só para edição.
-        // Pela sua regra "Garantir gerando um gatilho", assumo foco em NOVAS despesas.
-        
       } else {
-        // INSERT puro -> Trigger assume
+        // INSERT PURO -> O Trigger vai ler 'mes_inicio_cobranca' e usar como base
         const { error } = await supabase.from('despesas').insert(despesaRow);
         if (error) throw error;
       }
 
-      // Embeddings (IA)
-      // Como não temos o ID no insert sem select, pegamos na proxima sync ou ignoramos para IA imediata
-      // Se quiser garantir IA, precisa fazer .select() e pegar o ID
-      
       return { ok: true };
 
     } catch (err) {
       console.error('[FinanceContext.saveVariableExpense] ERROR:', err);
       return { ok: false, error: err };
     } finally {
-      await wait(800); // Espera um pouco mais para o trigger rodar
+      await wait(1000); 
       await fetchData(); 
       console.groupEnd();
     }
   };
-
   // 4.1 Salvar Despesas a partir do Leitor de Faturas
   // Mantemos a lógica manual aqui pois o Leitor já calcula datas exatas (OCR) que podem diferir da regra padrão do trigger
   // O Trigger deve verificar se já existem parcelas? Não, o trigger roda no insert.
@@ -357,3 +358,4 @@ export const useFinance = () => {
   if (context === undefined) throw new Error('useFinance deve ser usado dentro de um FinanceProvider');
   return context;
 };
+
