@@ -14,7 +14,7 @@ import MainLayout from './components/MainLayout';
 import PwaUpdater from './components/PwaUpdater';
 import WelcomeScreen from './components/WelcomeScreen';
 import AuthPage from './pages/AuthPages';
-import Chatbot from './components/Chatbot';
+import Chatbot from './components/ChatBot';
 import NovaDespesaModal from './components/modals/NovaDespesaModal';
 import LeitorDeFaturaPage from './pages/LeitorDeFaturaPage';
 
