@@ -220,7 +220,8 @@ export function FinanceProvider({ children }) {
      await wait(500); await fetchData();
   };
 
-  // 4. Salvar Despesa Variável (Cartão/Parcelado) - Lógica de Fechamento/Vencimento
+  // 4. Salvar Despesa Variável (Manual - NovaDespesaModal)
+  // [CORRIGIDO: BLINDAGEM CONTRA DATAS INVÁLIDAS E INSERÇÃO DE PARCELAS]
   const saveVariableExpense = async (expenseData) => {
     console.groupCollapsed('[FinanceContext.saveVariableExpense] start');
     try {
@@ -228,37 +229,50 @@ export function FinanceProvider({ children }) {
       const totalAmount = Number(String(expenseData.amount).replace(',', '.'));
       const qtdParcelas = Number(expenseData.qtd_parcelas || 1);
       
-      // A. Encontrar configurações do Banco Selecionado
+      // A. Configurações do Banco
       const bancoConfig = bancos.find(b => 
         b.nome.toLowerCase() === expenseData.metodo_pagamento?.toLowerCase()
       );
 
-      const dataCompra = new Date(expenseData.data_compra + 'T12:00:00');
+      // Datas Base
+      // Forçamos o meio-dia para evitar problemas de fuso horário
+      const dataCompraParts = expenseData.data_compra.split('-'); // YYYY-MM-DD
+      const dataCompra = new Date(
+        Number(dataCompraParts[0]), 
+        Number(dataCompraParts[1]) - 1, 
+        Number(dataCompraParts[2]), 
+        12, 0, 0
+      );
+      
       const diaCompra = dataCompra.getDate();
 
       // Configuração de Datas (Default: 32 = sem fechamento, diaVencimento = diaCompra)
       const diaFechamento = bancoConfig?.diaFechamento || 32; 
       const diaVencimento = bancoConfig?.diaVencimento || diaCompra; 
       
-      // B. Calcular a Data da Primeira Parcela
-      let dataPrimeiraParcela = new Date(dataCompra);
-      dataPrimeiraParcela.setDate(diaVencimento); // Ajusta para o dia do vencimento
+      // B. Calcular Mês/Ano da Primeira Parcela
+      // Não usamos setDate direto para evitar bugs de virada de mês em dias 31
+      let mesReferencia = dataCompra.getMonth();
+      let anoReferencia = dataCompra.getFullYear();
 
       if (diaFechamento !== 32) {
-        // Lógica de Cartão
+        // Lógica de Cartão: Se comprou após fechamento, pula 2 meses (mês atual + próximo)
+        // Se antes, pula 1 mês (mês seguinte)
         if (diaCompra >= diaFechamento) {
-          // Comprou DEPOIS do fechamento: Pula o mês seguinte, cai no próximo (ex: Compra 28/Nov, Fecha 28/Nov -> Paga Jan)
-          dataPrimeiraParcela.setMonth(dataPrimeiraParcela.getMonth() + 2); 
+          mesReferencia += 2;
         } else {
-          // Comprou ANTES do fechamento: Cai no mês seguinte
-          dataPrimeiraParcela.setMonth(dataPrimeiraParcela.getMonth() + 1);
+          mesReferencia += 1;
         }
       } else {
-        // Sem fechamento (ex: PIX), vence no mês seguinte
-        dataPrimeiraParcela.setMonth(dataPrimeiraParcela.getMonth() + 1);
+        // Sem fechamento (ex: Boleto/PIX agendado), vence no mês seguinte
+        mesReferencia += 1;
       }
 
-      // C. Persistência (Header - Despesa Pai)
+      // Ajuste de virada de ano (ex: Mês 13 vira Mês 1 do ano seguinte)
+      // dataBaseVencimento serve apenas para pegar o Mês/Ano inicial correto
+      const dataBaseVencimento = new Date(anoReferencia, mesReferencia, 1, 12, 0, 0);
+      
+      // C. Persistência (Pai)
       const despesaRow = {
         description: (expenseData.description || '').trim(),
         amount: totalAmount,
@@ -266,7 +280,9 @@ export function FinanceProvider({ children }) {
         metodo_pagamento: expenseData.metodo_pagamento,
         categoria_id: expenseData.categoria_id || null,
         is_parcelado: qtdParcelas > 1,
-        qtd_parcelas: qtdParcelas
+        qtd_parcelas: qtdParcelas,
+        // Garante que campos opcionais não vão como undefined
+        metodo_pagamento_id: bancoConfig?.id || null
       };
 
       let despesaId;
@@ -274,34 +290,52 @@ export function FinanceProvider({ children }) {
       if (isEdit) {
         despesaId = expenseData.id;
         await supabase.from('despesas').update(despesaRow).eq('id', despesaId);
-        // Limpa parcelas antigas para recriar
+        // Limpa parcelas antigas para recriar com a lógica nova
         await supabase.from('parcelas').delete().eq('despesa_id', despesaId);
       } else {
-        const { data } = await supabase.from('despesas').insert(despesaRow).select().single();
+        const { data, error } = await supabase.from('despesas').insert(despesaRow).select().single();
+        if (error) throw error;
         despesaId = data.id;
       }
 
-      // D. Gerar Parcelas (Filhos)
+      // D. Gerar Parcelas (Filhos) com "Clamping" de Data (Trava dia 30/31)
       const valorParcela = totalAmount / qtdParcelas;
       let parcelasRows = [];
 
+      // O dia base para todas as parcelas é o dia de vencimento do cartão
+      const diaAlvo = diaVencimento; 
+      
+      // Base inicial (Ano/Mês da primeira parcela calculada acima)
+      let currentYear = dataBaseVencimento.getFullYear();
+      let currentMonth = dataBaseVencimento.getMonth();
+
       for (let i = 0; i < qtdParcelas; i++) {
-        const dataParcela = new Date(dataPrimeiraParcela);
-        dataParcela.setMonth(dataPrimeiraParcela.getMonth() + i);
+        // Calcula o mês alvo desta parcela específica
+        // O Date do JS resolve automaticamente viradas de ano quando somamos no construtor
         
-        const y = dataParcela.getFullYear();
-        const m = String(dataParcela.getMonth() + 1).padStart(2, '0');
-        const d = String(dataParcela.getDate()).padStart(2, '0');
+        // Descobre quantos dias tem no mês alvo
+        const diasNoMes = new Date(currentYear, currentMonth + i + 1, 0).getDate();
+        
+        // Trava de segurança: Se o dia de vencimento for 31 e o mês tiver 30, usa 30.
+        const diaSeguro = Math.min(diaAlvo, diasNoMes);
+        
+        const dataParcela = new Date(currentYear, currentMonth + i, diaSeguro, 12, 0, 0);
+        
+        const yStr = dataParcela.getFullYear();
+        const mStr = String(dataParcela.getMonth() + 1).padStart(2, '0');
+        const dStr = String(dataParcela.getDate()).padStart(2, '0');
 
         parcelasRows.push({
           despesa_id: despesaId,
           numero_parcela: i + 1,
           amount: valorParcela,
-          data_parcela: `${y}-${m}-${d}` // A data salva é a do VENCIMENTO
+          data_parcela: `${yStr}-${mStr}-${dStr}`, // Data VENCIMENTO válida
+          paga: false
         });
       }
 
-      await supabase.from('parcelas').insert(parcelasRows);
+      const { error: insertError } = await supabase.from('parcelas').insert(parcelasRows);
+      if (insertError) throw insertError;
 
       // E. Atualizar IA
       const categoriaTexto = categorias.find(c => c.id === despesaRow.categoria_id)?.nome || 'Outros';
@@ -321,110 +355,108 @@ export function FinanceProvider({ children }) {
     }
   };
 
-
-
-  // 4.1 Salvar Despesas a partir do Leitor de Faturas (Batch)
+  // 4.1 Salvar Despesas a partir do Leitor de Faturas (Batch Sequencial Seguro)
+  // [CORRIGIDO: VÍNCULO PAI-FILHO GARANTIDO]
   const saveInvoiceExpenses = async (invoiceDataArray) => {
     console.groupCollapsed('[FinanceContext.saveInvoiceExpenses] start');
+    
+    // Variável para acumular resultados e erros
+    const results = [];
+    const errors = [];
+
     try {
       if (!Array.isArray(invoiceDataArray) || invoiceDataArray.length === 0) {
         return { ok: false, error: new Error('Nenhuma despesa para salvar.') };
       }
 
-      // A. Monta linhas de DESPESAS (tabela pai)
-      const despesasRows = invoiceDataArray.map(item => {
-        const base = item.despesa || {};
-        const banco = bancos.find(b => b.id === item.account_id);
-
-        return {
-          description: (base.description || '').trim(),
-          amount: Number(base.amount),
-          data_compra: base.data_compra,
-          metodo_pagamento: banco?.nome || base.metodo_pagamento || null,
-          categoria_id: base.categoria_id || null,
-          is_parcelado: !!base.is_parcelado,
-          qtd_parcelas: base.qtd_parcelas || 1,
-
-          // Campos adicionais do schema (mantidos se vierem preenchidos)
-          inicia_proximo_mes: base.inicia_proximo_mes || false,
-          mes_inicio_cobranca: base.mes_inicio_cobranca || null,
-          user_phone: base.user_phone || null,
-          category: base.category || null,
-          usuario_id: base.usuario_id || null,
-          metodo_pagamento_id: banco?.id || base.metodo_pagamento_id || null,
-          user_id: base.user_id || null,
-          device_id: base.device_id || null,
-        };
-      });
-
-      const { data: insertedDespesas, error: insertDespError } = await supabase
-        .from('despesas')
-        .insert(despesasRows)
-        .select();
-
-      if (insertDespError) throw insertDespError;
-
-      // B. Monta linhas de PARCELAS (tabela filha)
-      const parcelasRows = [];
-      insertedDespesas.forEach((despesaRow, idx) => {
-        const item = invoiceDataArray[idx];
-        const parcelasOriginais = item.parcelas || [];
-
-        parcelasOriginais.forEach(p => {
-          parcelasRows.push({
-            despesa_id: despesaRow.id,
-            numero_parcela: p.numero_parcela,
-            amount: Number(p.amount),
-            data_parcela: p.data_parcela,
-            paga: p.paga ?? false,
-          });
-        });
-      });
-
-      if (parcelasRows.length > 0) {
-        const { error: parcelasError } = await supabase
-          .from('parcelas')
-          .insert(parcelasRows);
-        if (parcelasError) throw parcelasError;
-      }
-
-      // C. Enfileira para embeddings (IA financeira)
-      const embeddingRows = insertedDespesas.map(d => {
-        const categoriaTexto = categorias.find(c => c.id === d.categoria_id)?.nome || 'Outros';
-        return {
-          source_id: String(d.id),
-          source_table: 'despesas',
-          date: d.data_compra,
-          description: d.description,
-          category: categoriaTexto,
-          amount: d.amount,
-        };
-      });
-
-      if (embeddingRows.length > 0) {
+      // LOOP SEQUENCIAL: Garante que o ID do Pai seja vinculado corretamente aos Filhos
+      for (const item of invoiceDataArray) {
         try {
-          await supabase.from('embedding_queue').insert(embeddingRows);
-        } catch (e) {
-          console.warn('[FinanceContext.saveInvoiceExpenses] Erro ao enfileirar embeddings:', e);
+          const base = item.despesa || {};
+          const banco = bancos.find(b => b.id === item.account_id);
+
+          // 1. Monta o Objeto da Despesa (Pai)
+          const despesaRow = {
+            description: (base.description || '').trim(),
+            amount: Number(base.amount),
+            data_compra: base.data_compra,
+            metodo_pagamento: banco?.nome || base.metodo_pagamento || null,
+            categoria_id: base.categoria_id || null,
+            is_parcelado: !!base.is_parcelado,
+            qtd_parcelas: base.qtd_parcelas || 1,
+            
+            // Campos auxiliares
+            inicia_proximo_mes: base.inicia_proximo_mes || false,
+            mes_inicio_cobranca: base.mes_inicio_cobranca || null,
+            metodo_pagamento_id: banco?.id || base.metodo_pagamento_id || null,
+          };
+
+          // 2. Insere a Despesa e recupera o ID imediatamente
+          const { data: insertedDespesa, error: despError } = await supabase
+            .from('despesas')
+            .insert(despesaRow)
+            .select()
+            .single();
+
+          if (despError) throw despError;
+          if (!insertedDespesa) throw new Error("Falha ao recuperar ID da despesa inserida.");
+
+          const despesaId = insertedDespesa.id;
+
+          // 3. Monta as Parcelas (Filhos) vinculando ao ID recuperado
+          const parcelasOriginais = item.parcelas || [];
+          if (parcelasOriginais.length > 0) {
+            const parcelasRows = parcelasOriginais.map(p => ({
+              despesa_id: despesaId, // VÍNCULO GARANTIDO
+              numero_parcela: p.numero_parcela,
+              amount: Number(p.amount),
+              data_parcela: p.data_parcela,
+              paga: p.paga ?? false,
+            }));
+
+            const { error: parcError } = await supabase
+              .from('parcelas')
+              .insert(parcelasRows);
+
+            if (parcError) throw parcError;
+          }
+
+          // 4. Enfileira para IA (Embeddings)
+          const categoriaTexto = categorias.find(c => c.id === despesaRow.categoria_id)?.nome || 'Outros';
+          await supabase.from('embedding_queue').insert({
+            source_id: String(despesaId),
+            source_table: 'despesas',
+            date: despesaRow.data_compra,
+            description: despesaRow.description,
+            category: categoriaTexto,
+            amount: despesaRow.amount,
+          });
+
+          results.push(insertedDespesa);
+
+        } catch (innerErr) {
+          console.error(`Erro ao salvar item individual: ${item.despesa?.description}`, innerErr);
+          errors.push(innerErr);
+          // Continua o loop para tentar salvar os próximos
         }
       }
 
       await wait(500);
       await fetchData();
 
-      return { ok: true, data: insertedDespesas };
+      if (errors.length > 0 && results.length === 0) {
+        return { ok: false, error: errors[0] };
+      }
+
+      return { ok: true, data: results };
+
     } catch (err) {
-      console.error('[FinanceContext.saveInvoiceExpenses] ERROR:', err);
+      console.error('[FinanceContext.saveInvoiceExpenses] CRITICAL ERROR:', err);
       return { ok: false, error: err };
     } finally {
       console.groupEnd();
     }
   };
-
-
-
-
-
 
   // 5. Deletar Despesa
   const deleteDespesa = async (despesaObject, deleteType = 'single') => {
