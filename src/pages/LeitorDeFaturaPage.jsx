@@ -15,7 +15,7 @@ import { generateInstallments } from '../utils/invoiceCalculator';
 import { useFinance } from '../context/FinanceContext';
 
 // CONFIGURAÇÃO API PYTHON
-const PYTHON_API_URL = 'http://127.0.0.1:5000'; 
+const PYTHON_API_URL = 'https://finansmart-backend-119305932517.us-central1.run.app'; 
 
 // --- COMPONENTE VISUAL: BLOBS DE FUNDO ---
 const BackgroundBlobs = () => (
@@ -526,4 +526,5 @@ export default function LeitorDeFaturaPage({ onClose }) {
       </motion.div>
     </div>
   );
+
 }
