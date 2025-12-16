@@ -1,10 +1,10 @@
 // src/pages/CardDetailPage.jsx
-// (Versão 6.1 - Corrigida: Edição via Modal)
+// (Versão 6.2 - Busca por Texto e Valores Numéricos)
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useVisibility } from '../context/VisibilityContext';
-import { useModal } from '../context/ModalContext'; // [CORREÇÃO 1: Import do Contexto]
+import { useModal } from '../context/ModalContext'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, ChevronRight, CreditCard, Calendar, ShoppingBag, 
@@ -73,7 +73,7 @@ const SearchBar = ({ value, onChange }) => (
     <input
       type="text"
       className="block w-full pl-10 pr-3 py-3 border-none rounded-2xl leading-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm"
-      placeholder="Buscar..."
+      placeholder="Buscar por nome ou valor..."
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -164,7 +164,7 @@ const TransactionItem = ({ item, theme, onEdit, onDelete, isInvoiceView }) => {
 export default function CardDetailPage({ banco, onBack, selectedMonth }) {
   const { transactions, allParcelas, variableExpenses, categorias, deleteDespesa } = useFinance();
   const { valuesVisible } = useVisibility();
-  const { showModal } = useModal(); // [CORREÇÃO 2: Uso do Hook]
+  const { showModal } = useModal(); 
   
   const [viewMode, setViewMode] = useState('purchases'); 
   const [searchTerm, setSearchTerm] = useState('');
@@ -266,11 +266,18 @@ export default function CardDetailPage({ banco, onBack, selectedMonth }) {
 
     items.sort((a, b) => new Date(b.date) - new Date(a.date));
     
+    // --- FILTRO DE BUSCA (Texto e Número) ---
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       items = items.filter(i => 
+        // 1. Busca por descrição
         i.description.toLowerCase().includes(lower) || 
-        (i.categoriaNome && i.categoriaNome.toLowerCase().includes(lower))
+        // 2. Busca por categoria
+        (i.categoriaNome && i.categoriaNome.toLowerCase().includes(lower)) ||
+        // 3. Busca por valor (Ex: "97.50")
+        String(i.amount).includes(lower) ||
+        // 4. Busca por valor formatado BR (Ex: "97,50")
+        i.amount.toFixed(2).replace('.', ',').includes(lower)
       );
     }
 
@@ -299,7 +306,6 @@ export default function CardDetailPage({ banco, onBack, selectedMonth }) {
 
   // --- ACTIONS ---
 
-  // [CORREÇÃO 3: handleEdit corrigido para usar showModal]
   const handleEdit = (item) => {
     console.log("Abrindo edição para:", item.originalObject);
     showModal('novaDespesa', { despesaParaEditar: item.originalObject });
