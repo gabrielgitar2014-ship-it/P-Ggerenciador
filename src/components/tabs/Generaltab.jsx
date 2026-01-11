@@ -1,339 +1,477 @@
 // src/tabs/GeneralTab.jsx
-// (Versão 10.2 - Fixed: Uses ModalContext correctly)
+// GeneralTab v11.1 — Greeting + Progress Bar + Last 5 "despesas" + Fixas perto de vencer
+// + Tema claro agradável (light default + dark:)
+// Pronto para uso.
 
-import React, { useMemo } from 'react';
-import { useFinance } from '../../context/FinanceContext';
-import { useVisibility } from '../../context/VisibilityContext';
-import { useModal } from '../../context/ModalContext';
-import { 
-  ArrowUp, ArrowDown, CreditCard,  ReceiptText, Plus, Wallet, CircleDollarSign, ChevronRight, TrendingUp 
-} from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useMemo } from "react";
+import { useFinance } from "../../context/FinanceContext";
+import { useVisibility } from "../../context/VisibilityContext";
+import { useModal } from "../../context/ModalContext";
+import {
+  ArrowUp,
+  ArrowDown,
+  CreditCard,
+  ReceiptText,
+  Plus,
+  Wallet,
+  CircleDollarSign,
+  ChevronRight,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
-// --- HELPERS ---
+// ---------- HELPERS ----------
 function formatCurrencyBRL(value) {
-  if (typeof value !== 'number' || isNaN(value)) {
-    return 'R$ 0,00';
-  }
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+  if (typeof value !== "number" || Number.isNaN(value)) return "R$ 0,00";
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function formatDateBr(dateString) {
-  if (!dateString) return '';
-  const [year, month, day] = dateString.split('-');
-  return `${day}/${month}`;
+function safeNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-// --- COMPONENTES VISUAIS ---
+function parseISODate(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const d = new Date(dateStr);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
-// 1. Hero Card
-const HeroCard = ({ saldo, receitas, despesas }) => {
+function getGreetingByHour(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 0 && h <= 4) return "Boa madrugada";
+  if (h >= 5 && h <= 11) return "Bom dia";
+  if (h >= 12 && h <= 17) return "Boa tarde";
+  return "Boa noite";
+}
+
+function pickMonthMatch(dateStr, selectedMonth) {
+  if (!dateStr || !selectedMonth) return false;
+  return String(dateStr).startsWith(selectedMonth);
+}
+
+// ---------- UI COMPONENTS ----------
+const HeroCard = ({ title, value, icon: Icon, iconBg, valueColor, subContent }) => {
   const { valuesVisible } = useVisibility();
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-[2rem] p-6 shadow-2xl text-white"
-      style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)'
-      }}
+      transition={{ duration: 0.35 }}
+      className="
+        relative overflow-hidden rounded-[2rem] p-6
+        bg-white border border-slate-200 text-slate-900 shadow-xl
+        dark:bg-slate-900 dark:border-white/10 dark:text-white
+      "
     >
-      <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-blue-600/20 rounded-full blur-[60px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-32 h-32 bg-purple-600/20 rounded-full blur-[50px] pointer-events-none" />
-      
-      {/* Header Saldo */}
-      <div className="flex justify-between items-start mb-6 relative z-10">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider opacity-80">Saldo Disponível</span>
-          <h1 className="text-4xl font-bold mt-1 tracking-tight text-white">
-            {valuesVisible ? formatCurrencyBRL(saldo) : '••••••••'}
-          </h1>
+          <div className="text-xs font-semibold text-slate-500 dark:text-white/70 uppercase tracking-wide mb-2">
+            {title}
+          </div>
+          <div className={`text-3xl font-bold ${valueColor}`}>
+            {valuesVisible ? value : "••••"}
+          </div>
         </div>
-        <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10">
-          <Wallet className="w-6 h-6 text-white" />
+
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBg}`}>
+          <Icon className="w-6 h-6 text-white" />
         </div>
       </div>
 
-      {/* Card Interno de Investimentos */}
-      <div className="bg-slate-800/50 rounded-xl p-3 mb-6 flex items-center gap-3 border border-white/5 backdrop-blur-sm relative z-10">
-        <div className="p-2 bg-emerald-500/20 rounded-lg">
-          <TrendingUp className="w-5 h-5 text-emerald-400" />
-        </div>
-        <div>
-           <span className="text-[10px] font-bold text-emerald-400 uppercase">Investimentos</span>
-           <div className="text-sm font-semibold text-white">R$ 0,00</div>
-        </div>
-      </div>
-
-      {/* Resumo Receitas vs Despesas */}
-      <div className="flex justify-between items-center relative z-10">
-        <div className="flex flex-col">
-          <span className="text-xs font-bold text-emerald-400 mb-1">RECEITAS</span>
-          <span className="text-lg font-medium text-slate-100">
-             {valuesVisible ? formatCurrencyBRL(receitas) : '••••'}
-          </span>
-        </div>
-        <div className="flex flex-col items-end">
-           <span className="text-xs font-bold text-rose-400 mb-1">DESPESAS</span>
-          <span className="text-lg font-medium text-slate-100">
-            {valuesVisible ? formatCurrencyBRL(despesas) : '••••'}
-          </span>
-        </div>
-      </div>
+      {subContent}
     </motion.div>
   );
 };
 
-// 2. Botões de Ação
 const QuickAction = ({ label, icon: Icon, colorClass, bgClass, onClick, delay }) => (
   <motion.button
     initial={{ opacity: 0, scale: 0.8 }}
     animate={{ opacity: 1, scale: 1 }}
-    transition={{ delay: delay, type: "spring", stiffness: 200 }}
+    transition={{ delay, type: "spring", stiffness: 200 }}
     onClick={onClick}
     className="flex flex-col items-center gap-2 group w-full"
   >
-    <div className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-slate-200/50 dark:shadow-none transition-transform active:scale-95 ${bgClass}`}>
-      <Icon className={`w-7 h-7 md:w-8 md:h-8 ${colorClass}`} strokeWidth={2} />
+    <div
+      className={`
+        w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem]
+        flex items-center justify-center
+        shadow-md group-hover:shadow-lg group-hover:scale-[1.03] active:scale-95 transition-transform
+        border border-slate-200 bg-white
+        dark:border-white/10 dark:bg-slate-900/40
+        ${bgClass}
+      `}
+    >
+      <Icon className={`w-7 h-7 md:w-8 md:h-8 ${colorClass}`} />
     </div>
-    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">
+
+    <span
+      className="
+        text-xs md:text-sm font-semibold
+        text-slate-700 group-hover:text-slate-900
+        dark:text-slate-200 dark:group-hover:text-white
+        transition-colors text-center
+      "
+    >
       {label}
     </span>
   </motion.button>
 );
 
-// 3. Item da Lista de Transações
-const TransactionItem = ({ transaction }) => {
+const ListItem = ({ title, subtitle, rightText, icon: Icon, iconBg }) => {
   const { valuesVisible } = useVisibility();
-  const isExpense = transaction.type === 'expense';
-  
-  const amountColor = isExpense ? 'text-slate-900 dark:text-slate-100' : 'text-emerald-600 dark:text-emerald-400';
-  const iconBg = isExpense ? 'bg-rose-50 dark:bg-rose-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20';
-  const iconColor = isExpense ? 'text-rose-500' : 'text-emerald-500';
-  const Icon = isExpense ? ArrowDown : ArrowUp;
 
   return (
-    <div className="flex items-center justify-between py-3 px-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-      <div className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconBg}`}>
-          <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={2.5} />
+    <div
+      className="
+        flex items-center justify-between gap-3 p-3 rounded-2xl
+        bg-white border border-slate-200 hover:bg-slate-50 transition-colors
+        dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10
+      "
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${iconBg} shrink-0`}>
+          <Icon className="w-5 h-5 text-white" />
         </div>
-        
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-            {transaction.description}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium">
-              {formatDateBr(transaction.date)}
-            </span>
-            {transaction.isParcela && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">
-                {transaction.currentParcel}x
-              </span>
-            )}
-          </div>
+
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{title}</div>
+          {subtitle ? (
+            <div className="text-xs text-slate-500 dark:text-white/60 truncate">{subtitle}</div>
+          ) : null}
         </div>
       </div>
-      <span className={`font-bold text-sm ${amountColor}`}>
-        {isExpense ? '-' : '+'} {valuesVisible ? formatCurrencyBRL(transaction.amount) : '••••'}
-      </span>
+
+      <div className="text-sm font-bold text-slate-900 dark:text-white shrink-0">
+        {valuesVisible ? rightText : "••••"}
+      </div>
     </div>
   );
 };
 
-
-// ===================================================================
-// COMPONENTE PRINCIPAL
-// ===================================================================
-export default function GeneralTab({ selectedMonth, onNavigate }) {
-  // 1. Obtendo a função showModal corretamente do contexto
+// ---------- MAIN ----------
+export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
   const { showModal } = useModal();
-  
-  // 2. Obtendo funções e dados do contexto financeiro
-  const { 
-    transactions, 
-    allParcelas,
-    variableExpenses, 
-    saveIncome,
-    saveExpense // IMPORTANTE: Precisamos dessa função para salvar a nova despesa
-  } = useFinance();
+  const { transactions, allParcelas, variableExpenses, saveIncome, saveExpense } = useFinance();
 
-  // --- 1. Lógica de Totais ---
+  const greeting = useMemo(() => getGreetingByHour(new Date()), []);
+  const displayName =
+    userName && String(userName).trim() ? String(userName).trim() : "Gabriel Ricco";
+
+  // Totais do mês (mesma regra do seu fluxo atual: fixas via transactions + variáveis via parcelas)
   const { totalRendas, totalDespesas, saldoMes } = useMemo(() => {
-    const rendas = (transactions || []).filter(t => t.type === 'income' && t.date?.startsWith(selectedMonth));
-    const fixas = (transactions || []).filter(t => t.type === 'expense' && t.is_fixed && t.date?.startsWith(selectedMonth));
-    const parcelas = (allParcelas || []).filter(p => p.data_parcela?.startsWith(selectedMonth));
+    const monthTx = (transactions || []).filter((t) => pickMonthMatch(t?.date, selectedMonth));
 
-    const totalRendas = rendas.reduce((acc, t) => acc + Number(t.amount || 0), 0);
-    const totalFixas = fixas.reduce((acc, t) => acc + Number(t.amount || 0), 0);
-    const totalVariaveis = parcelas.reduce((acc, p) => acc + Number(p.amount || 0), 0);
-    
-    return { 
-      totalRendas, 
-      totalDespesas: totalFixas + totalVariaveis, 
-      saldoMes: totalRendas - (totalFixas + totalVariaveis) 
-    };
+    const incomes = monthTx
+      .filter((t) => t?.type === "income")
+      .reduce((sum, t) => sum + safeNumber(t?.amount), 0);
+
+    const fixed = monthTx
+      .filter((t) => t?.type === "expense" && t?.is_fixed)
+      .reduce((sum, t) => sum + safeNumber(t?.amount), 0);
+
+    const variable = (allParcelas || [])
+      .filter((p) => pickMonthMatch(p?.data_parcela, selectedMonth))
+      .reduce((sum, p) => sum + safeNumber(p?.amount), 0);
+
+    const expenses = fixed + variable;
+
+    return { totalRendas: incomes, totalDespesas: expenses, saldoMes: incomes - expenses };
   }, [transactions, allParcelas, selectedMonth]);
 
-  // --- 2. Lógica de Transações Recentes ---
-  const recentTransactions = useMemo(() => {
-    // A. Rendas e Fixas
-    const fixedAndIncomes = (transactions || []).filter(t => 
-      t.date?.startsWith(selectedMonth)
-    ).map(t => ({
-      id: t.id,
-      type: t.type,
-      description: t.description || t.nome || 'Sem descrição',
-      date: t.date,
-      amount: Number(t.amount),
-      isParcela: false
-    }));
+  // % renda consumida
+  const percentSpent = useMemo(() => {
+    if (!totalRendas || totalRendas <= 0) return 0;
+    const pct = (totalDespesas / totalRendas) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }, [totalRendas, totalDespesas]);
 
-    // B. Variáveis
-    const variableItems = (allParcelas || []).filter(p => 
-      p.data_parcela?.startsWith(selectedMonth)
-    ).map(p => {
-      const parentExpense = variableExpenses.find(v => v.id === p.despesa_id);
-      return {
-        id: p.id,
-        type: 'expense',
-        description: parentExpense ? parentExpense.description : 'Despesa Variável',
-        date: p.data_parcela,
-        amount: Number(p.amount),
-        isParcela: true,
-        currentParcel: p.numero_parcela
-      };
-    });
-
-    // C. Unir e Ordenar
-    const all = [...fixedAndIncomes, ...variableItems];
-    return all.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
-
-  }, [transactions, allParcelas, variableExpenses, selectedMonth]);
-
-  // --- FUNÇÕES DE CLIQUE (CORRIGIDAS) ---
-  
   const handleAddNewIncome = () => {
-    console.log("Abrindo modal de Nova Receita");
-    showModal('novaRenda', { onSave: saveIncome });
+    showModal("novaRenda", { onSave: saveIncome });
   };
 
   const handleAddNewExpense = () => {
-    console.log("Abrindo modal de Nova Despesa (Variável) via showModal");
-    
-    // CORREÇÃO: Chama showModal diretamente com o tipo 'novaDespesa'
-    // Passamos o onSave para conectar com o FinanceContext
-    showModal('novaDespesa', { 
+    if (!saveExpense) {
+      console.warn("saveExpense não está disponível no contexto financeiro.");
+      return;
+    }
+    showModal("novaDespesa", {
       onSave: async (expenseData) => {
-        console.log("Salvando despesa:", expenseData);
-        if (saveExpense) {
-          await saveExpense(expenseData);
-        } else {
-          console.error("ERRO: saveExpense não encontrado no FinanceContext");
-        }
-      }
+        return await saveExpense(expenseData);
+      },
     });
   };
-  
-  return (
-    <div className="flex flex-col gap-8 pb-24"> 
-      
-      {/* SEÇÃO 1: HERO CARD DARK */}
-      <HeroCard 
-        saldo={saldoMes} 
-        receitas={totalRendas} 
-        despesas={totalDespesas} 
-      />
 
-      {/* SEÇÃO 2: AÇÕES RÁPIDAS */}
-      <motion.div className="flex justify-between items-start gap-4 px-2">
-        
-        <QuickAction 
-          label="Nova Receita" 
-          icon={ArrowUp} 
-          bgClass="bg-green-300 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          colorClass="text-emerald-500"
+  // Esquerda: últimas 5 despesas da tabela "despesas" (assumindo variableExpenses = despesas (pai))
+  const last5Despesas = useMemo(() => {
+    const list = Array.isArray(variableExpenses) ? variableExpenses : [];
+
+    const getDateStr = (d) =>
+      d?.data_compra || d?.dataCompra || d?.date || d?.created_at || d?.updated_at;
+
+    const getAmount = (d) => safeNumber(d?.amount ?? d?.valor ?? d?.value);
+
+    const getTitle = (d) => d?.description || d?.descricao || d?.title || "Despesa";
+
+    return list
+      .filter((d) => pickMonthMatch(getDateStr(d), selectedMonth))
+      .map((d) => ({
+        id: d?.id,
+        title: getTitle(d),
+        amount: getAmount(d),
+        dateStr: getDateStr(d),
+      }))
+      .sort((a, b) => {
+        const da = parseISODate(a.dateStr)?.getTime() ?? 0;
+        const db = parseISODate(b.dateStr)?.getTime() ?? 0;
+        return db - da;
+      })
+      .slice(0, 5);
+  }, [variableExpenses, selectedMonth]);
+
+  // Direita: fixas perto de vencer (próximos 7 dias)
+  const fixedNearDue = useMemo(() => {
+    const fixedTx = (transactions || []).filter((t) => t?.type === "expense" && t?.is_fixed);
+
+    const getDueDateStr = (t) =>
+      t?.due_date || t?.data_vencimento || t?.vencimento || t?.date;
+
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const in7Days = new Date(startToday);
+    in7Days.setDate(in7Days.getDate() + 7);
+
+    return fixedTx
+      .map((t) => {
+        const dueStr = getDueDateStr(t);
+        const dueDate = parseISODate(dueStr);
+        return {
+          id: t?.id,
+          title: t?.description || t?.title || "Despesa fixa",
+          amount: safeNumber(t?.amount),
+          dueStr,
+          dueDate,
+        };
+      })
+      .filter((x) => {
+        if (!x.dueDate) return false;
+
+        // Perto de vencer = entre hoje e +7 dias
+        const isNear = x.dueDate >= startToday && x.dueDate <= in7Days;
+
+        // Se selectedMonth estiver setado, tenta manter coerência do mês exibido
+        const isMonthOk = selectedMonth ? pickMonthMatch(x.dueStr, selectedMonth) : true;
+
+        return isNear && isMonthOk;
+      })
+      .sort((a, b) => (a.dueDate?.getTime() ?? 0) - (b.dueDate?.getTime() ?? 0))
+      .slice(0, 5);
+  }, [transactions, selectedMonth]);
+
+  return (
+    <div className="space-y-6">
+      {/* Header / Saudação */}
+      <div className="px-1">
+        <div className="text-slate-900 dark:text-white text-lg md:text-2xl font-extrabold">
+          {greeting}, <span className="text-slate-800 dark:text-white/90">{displayName}</span> 👋
+        </div>
+        <div className="text-slate-500 dark:text-white/60 text-sm mt-1">
+          Visão geral do mês {selectedMonth}
+        </div>
+      </div>
+
+      {/* HERO CARDS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <HeroCard
+          title="Saldo do mês"
+          value={formatCurrencyBRL(saldoMes)}
+          icon={Wallet}
+          iconBg="bg-indigo-500/80"
+          valueColor={saldoMes >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}
+          subContent={
+            <div
+              className="
+                rounded-2xl p-4 border
+                bg-slate-50 border-slate-200
+                dark:bg-slate-800/50 dark:border-white/10
+              "
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-white/70 uppercase">
+                  Consumo da renda
+                </span>
+                <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                  {Math.round(percentSpent)}%
+                </span>
+              </div>
+
+              <div className="w-full h-3 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-3 rounded-full bg-emerald-500 dark:bg-emerald-400"
+                  style={{ width: `${percentSpent}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between mt-3 text-xs text-slate-600 dark:text-white/70">
+                <span>
+                  Despesas:{" "}
+                  <span className="text-slate-900 dark:text-white">
+                    {formatCurrencyBRL(totalDespesas)}
+                  </span>
+                </span>
+                <span>
+                  Renda:{" "}
+                  <span className="text-slate-900 dark:text-white">
+                    {formatCurrencyBRL(totalRendas)}
+                  </span>
+                </span>
+              </div>
+            </div>
+          }
+        />
+
+        <HeroCard
+          title="Receitas"
+          value={formatCurrencyBRL(totalRendas)}
+          icon={CircleDollarSign}
+          iconBg="bg-emerald-500/80"
+          valueColor="text-emerald-600 dark:text-emerald-400"
+        />
+
+        <HeroCard
+          title="Despesas"
+          value={formatCurrencyBRL(totalDespesas)}
+          icon={ReceiptText}
+          iconBg="bg-rose-500/80"
+          valueColor="text-rose-600 dark:text-rose-400"
+        />
+      </div>
+
+      {/* AÇÕES RÁPIDAS */}
+      <div className="grid grid-cols-4 gap-3 md:gap-6">
+        <QuickAction
+          label="Nova Receita"
+          icon={ArrowUp}
+          colorClass="text-emerald-600 dark:text-emerald-400"
+          bgClass="bg-emerald-50 dark:bg-emerald-500/15"
           onClick={handleAddNewIncome}
+          delay={0.05}
+        />
+        <QuickAction
+          label="Nova Despesa"
+          icon={ArrowDown}
+          colorClass="text-rose-600 dark:text-rose-400"
+          bgClass="bg-rose-50 dark:bg-rose-500/15"
+          onClick={handleAddNewExpense}
           delay={0.1}
         />
-        <QuickAction 
-          label="Nova Despesa" 
-          icon={ArrowDown} 
-          bgClass="bg-red-300 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          colorClass="text-rose-500"
-          onClick={handleAddNewExpense} // Chama a função corrigida
-          delay={0.2}
-        />
-        <QuickAction 
-          label="Bancos" 
-          icon={CreditCard} 
-          bgClass="bg-purple-600 dark:bg-blue-600 border border-blue-500"
-          colorClass="text-white"
-          onClick={() => onNavigate('bancos')}
-          delay={0.3}
+        <QuickAction
+          label="Bancos"
+          icon={CreditCard}
+          colorClass="text-indigo-600 dark:text-indigo-300"
+          bgClass="bg-indigo-50 dark:bg-indigo-500/15"
+          onClick={() => onNavigate("bancos")}
+          delay={0.15}
         />
         <QuickAction
           label="Fixas"
-          icon={CircleDollarSign}
-          bgClass= "bg-yellow-400 dark:bg-yellow-600 border border-yellow-500"
-          colorClass= "text-white"
-          onClick={() => onNavigate('fixas')}
-          delay={0.3}
+          icon={Plus}
+          colorClass="text-amber-600 dark:text-amber-300"
+          bgClass="bg-amber-50 dark:bg-amber-500/15"
+          onClick={() => onNavigate("fixas")}
+          delay={0.2}
         />
+      </div>
 
-      
-      </motion.div>
+      {/* LISTAS EM 2 COLUNAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Esquerda: últimas despesas */}
+        <div
+          className="
+            rounded-[2rem] p-5 border shadow-sm
+            bg-white border-slate-200
+            dark:bg-slate-900 dark:border-white/10
+          "
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-slate-900 dark:text-white font-extrabold text-base">
+              Últimas despesas
+            </div>
+            <button
+              onClick={() => onNavigate("allExpenses")}
+              className="
+                text-xs font-bold inline-flex items-center gap-1
+                text-slate-500 hover:text-slate-900
+                dark:text-white/70 dark:hover:text-white
+              "
+            >
+              Ver tudo <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
 
-      {/* SEÇÃO 3: LISTA DE EXTRATO */}
-      <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-sm border border-white/50 dark:border-slate-800">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            Extrato
-            <span className="text-xs font-medium bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full text-slate-500">
-               {selectedMonth}
-            </span>
-          </h3>
-          <button 
-            onClick={() => onNavigate('allExpenses')}
-            className="text-sm text-slate-500 hover:text-blue-600 flex items-center transition-colors"
-          >
-           
-          </button>
+          <div className="space-y-3">
+            {last5Despesas.length === 0 ? (
+              <div className="text-slate-500 dark:text-white/60 text-sm">
+                Nenhuma despesa encontrada para este mês.
+              </div>
+            ) : (
+              last5Despesas.map((d) => (
+                <ListItem
+                  key={d.id ?? `${d.title}-${d.dateStr}`}
+                  title={d.title}
+                  subtitle={d.dateStr ? `Compra: ${String(d.dateStr).slice(0, 10)}` : undefined}
+                  rightText={formatCurrencyBRL(d.amount)}
+                  icon={ReceiptText}
+                  iconBg="bg-rose-500/70"
+                />
+              ))
+            )}
+          </div>
         </div>
 
-        {recentTransactions.length > 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="flex flex-col gap-1"
-          >
-            {recentTransactions.map((t, index) => (
-              <TransactionItem key={`${t.id}-${index}`} transaction={t} />
-            ))}
-          </motion.div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-center opacity-60">
-             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-               <TrendingUp className="text-slate-400 w-6 h-6" />
-             </div>
-             <h4 className="font-semibold text-slate-700 dark:text-slate-300">Sem movimentações</h4>
-             <p className="text-sm text-slate-500 mt-1 max-w-[200px]">
-               Suas transações deste mês aparecerão aqui.
-             </p>
-             <button 
-                onClick={handleAddNewExpense} // Chama a função corrigida
-                className="mt-4 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform"
-             >
-               <Plus className="w-5 h-5" />
-             </button>
+        {/* Direita: fixas perto de vencer */}
+        <div
+          className="
+            rounded-[2rem] p-5 border shadow-sm
+            bg-white border-slate-200
+            dark:bg-slate-900 dark:border-white/10
+          "
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-slate-900 dark:text-white font-extrabold text-base">
+              Fixas perto de vencer
+            </div>
+            <button
+              onClick={() => onNavigate("fixas")}
+              className="
+                text-xs font-bold inline-flex items-center gap-1
+                text-slate-500 hover:text-slate-900
+                dark:text-white/70 dark:hover:text-white
+              "
+            >
+              Ver fixas <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        )}
+
+          <div className="space-y-3">
+            {fixedNearDue.length === 0 ? (
+              <div className="text-slate-500 dark:text-white/60 text-sm">
+                Nenhuma despesa fixa perto do vencimento (próximos 7 dias).
+              </div>
+            ) : (
+              fixedNearDue.map((x) => (
+                <ListItem
+                  key={x.id ?? `${x.title}-${x.dueStr}`}
+                  title={x.title}
+                  subtitle={x.dueStr ? `Vence: ${String(x.dueStr).slice(0, 10)}` : undefined}
+                  rightText={formatCurrencyBRL(x.amount)}
+                  icon={Wallet}
+                  iconBg="bg-amber-500/70"
+                />
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
