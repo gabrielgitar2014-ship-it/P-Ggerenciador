@@ -7,7 +7,8 @@ import { useModal } from '../../context/ModalContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, AlertCircle, Edit2, Trash2, MoreVertical, X, 
-  CreditCard, DollarSign, Wallet, CheckCircle2, Circle, Clock
+  CreditCard, DollarSign, Wallet, CheckCircle2, Circle, Clock,
+  Plus // <--- ADICIONADO: Ícone para o botão
 } from 'lucide-react';
 
 // --- HELPERS ---
@@ -253,6 +254,18 @@ export default function FixasTab({ onBack, selectedMonth }) {
           ))
         )}
       </div>
+
+      {/* --- ADIÇÃO: Botão para abrir o NewFixedExpenseModal --- */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => showModal('novaDespesaFixa')} // Certifique-se que o ID 'novaDespesaFixa' está configurado no ModalContext para abrir o NewFixedExpenseModal.jsx
+        className="absolute bottom-6 right-6 flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-lg shadow-purple-600/30 z-20 font-bold transition-colors"
+      >
+        <Plus className="w-5 h-5" />
+        <span>Nova Fixa</span>
+      </motion.button>
+      
     </motion.div>
   );
 }
