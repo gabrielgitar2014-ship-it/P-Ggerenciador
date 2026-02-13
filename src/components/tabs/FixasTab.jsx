@@ -11,7 +11,7 @@ import {
   Plus 
 } from 'lucide-react';
 
-// --- IMPORTE SOLICITADO ---
+// --- IMPORT O MODAL ---
 import NewFixedExpenseModal from '../modals/NewFixedExpenseModal';
 
 // --- HELPERS ---
@@ -143,6 +143,10 @@ export default function FixasTab({ onBack, selectedMonth }) {
   const { transactions, deleteDespesa, toggleFixedExpensePaidStatus } = useFinance();
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
+  
+  // --- NOVO ESTADO LOCAL PARA O MODAL ---
+  // Usamos isso para driblar o erro de "modal desconhecido" no contexto global
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // Filtrar apenas despesas fixas do mês selecionado
   const fixedExpenses = useMemo(() => {
@@ -188,85 +192,95 @@ export default function FixasTab({ onBack, selectedMonth }) {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 relative"
-    >
-      {/* HEADER */}
-      <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 pb-10 rounded-b-[2.5rem] shadow-xl text-white shrink-0 z-10 relative overflow-hidden">
-        
-        {/* Topo do Header Ajustado */}
-        <div className="flex items-center justify-between mb-6 relative z-10">
-          <div className="flex items-center gap-3">
+    <>
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 relative"
+      >
+        {/* HEADER */}
+        <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 pb-10 rounded-b-[2.5rem] shadow-xl text-white shrink-0 z-10 relative overflow-hidden">
+          
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onBack}
+                className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-6 h-6 text-white" />
+              </button>
+              <span className="font-bold text-lg">Despesas Fixas</span>
+            </div>
+
+            {/* BOTÃO CORRIGIDO: Usa estado local ao invés do showModal */}
             <button 
-              onClick={onBack}
-              className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors"
+              onClick={() => setIsNewModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
             >
-              <ChevronLeft className="w-6 h-6 text-white" />
+              <Plus className="w-4 h-4" />
+              <span>Nova</span>
             </button>
-            <span className="font-bold text-lg">Despesas Fixas</span>
           </div>
 
-          {/* BOTÃO ADICIONADO NA PARTE SUPERIOR */}
-          <button 
-            onClick={() => showModal('novaDespesaFixa')}
-            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova</span>
-          </button>
+          {/* Display do Total */}
+          <div className="flex flex-col items-center relative z-10">
+            <span className="text-sm font-medium text-purple-100 uppercase tracking-wider mb-1">Total Mensal</span>
+            <h1 className="text-4xl font-bold tracking-tight">
+              {valuesVisible ? formatCurrencyBRL(totalFixas) : '••••••'}
+            </h1>
+            
+            {/* Subtotal Pendente */}
+            {totalPendente > 0 ? (
+               <div className="mt-2 px-3 py-1 bg-amber-500/20 backdrop-blur-md rounded-full border border-amber-500/30 text-xs font-bold text-amber-100 flex items-center gap-1.5 shadow-sm">
+                 <Clock className="w-5 h-5" />
+                 Falta Pagar: {valuesVisible ? formatCurrencyBRL(totalPendente) : '•••'}
+               </div>
+            ) : (
+              fixedExpenses.length > 0 && (
+                <div className="mt-2 px-3 py-1 bg-green-500/20 backdrop-blur-md rounded-full border border-green-500/30 text-xs font-bold text-green-100 flex items-center gap-1.5 shadow-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Tudo Pago!
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Decorativos de Fundo */}
+          <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-purple-500/30 rounded-full blur-3xl" />
+          <div className="absolute bottom-[-20%] left-[-10%] w-32 h-32 bg-indigo-500/30 rounded-full blur-3xl" />
         </div>
 
-        {/* Display do Total */}
-        <div className="flex flex-col items-center relative z-10">
-          <span className="text-sm font-medium text-purple-100 uppercase tracking-wider mb-1">Total Mensal</span>
-          <h1 className="text-4xl font-bold tracking-tight">
-            {valuesVisible ? formatCurrencyBRL(totalFixas) : '••••••'}
-          </h1>
-          
-          {/* Subtotal Pendente */}
-          {totalPendente > 0 ? (
-             <div className="mt-2 px-3 py-1 bg-amber-500/20 backdrop-blur-md rounded-full border border-amber-500/30 text-xs font-bold text-amber-100 flex items-center gap-1.5 shadow-sm">
-               <Clock className="w-5 h-5" />
-               Falta Pagar: {valuesVisible ? formatCurrencyBRL(totalPendente) : '•••'}
-             </div>
+        {/* LISTA */}
+        <div className="flex-1 overflow-y-auto px-4 -mt-6 pt-8 pb-20 z-0 space-y-2">
+          {fixedExpenses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center mt-10 text-slate-400">
+              <AlertCircle className="w-12 h-12 mb-3 opacity-50" />
+              <p className="text-sm font-medium">Nenhuma despesa fixa para este mês.</p>
+            </div>
           ) : (
-            fixedExpenses.length > 0 && (
-              <div className="mt-2 px-3 py-1 bg-green-500/20 backdrop-blur-md rounded-full border border-green-500/30 text-xs font-bold text-green-100 flex items-center gap-1.5 shadow-sm">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Tudo Pago!
-              </div>
-            )
+            fixedExpenses.map(item => (
+              <FixedExpenseItem 
+                key={item.id} 
+                item={item} 
+                onEdit={handleEdit} 
+                onDelete={handleDelete}
+                onTogglePay={handleTogglePay}
+                valuesVisible={valuesVisible}
+              />
+            ))
           )}
         </div>
+      </motion.div>
 
-        {/* Decorativos de Fundo */}
-        <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-purple-500/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-32 h-32 bg-indigo-500/30 rounded-full blur-3xl" />
-      </div>
-
-      {/* LISTA */}
-      <div className="flex-1 overflow-y-auto px-4 -mt-6 pt-8 pb-20 z-0 space-y-2">
-        {fixedExpenses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center mt-10 text-slate-400">
-            <AlertCircle className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm font-medium">Nenhuma despesa fixa para este mês.</p>
-          </div>
-        ) : (
-          fixedExpenses.map(item => (
-            <FixedExpenseItem 
-              key={item.id} 
-              item={item} 
-              onEdit={handleEdit} 
-              onDelete={handleDelete}
-              onTogglePay={handleTogglePay}
-              valuesVisible={valuesVisible}
-            />
-          ))
-        )}
-      </div>
-    </motion.div>
+      {/* RENDERIZAÇÃO LOCAL DO MODAL */}
+      {/* Como não podemos registrar no contexto global, renderizamos aqui condicionalmente */}
+      {isNewModalOpen && (
+        <NewFixedExpenseModal 
+          isOpen={isNewModalOpen}
+          onClose={() => setIsNewModalOpen(false)} 
+        />
+      )}
+    </>
   );
 }
