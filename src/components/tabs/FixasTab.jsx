@@ -11,8 +11,7 @@ import {
   Plus 
 } from 'lucide-react';
 
-// --- IMPORTS ADICIONADOS ---
-// Importamos o Dialog Root para envolver o modal
+// --- IMPORTS DE UI E MODAL ---
 import { Dialog } from '../../components/ui/dialog'; 
 import NewFixedExpenseModal from '../modals/NewFixedExpenseModal';
 
@@ -142,11 +141,12 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
 };
 
 export default function FixasTab({ onBack, selectedMonth }) {
-  const { transactions, deleteDespesa, toggleFixedExpensePaidStatus } = useFinance();
+  // Importamos addDespesa do contexto para poder salvar
+  const { transactions, deleteDespesa, toggleFixedExpensePaidStatus, addDespesa } = useFinance();
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
   
-  // Estado local para controlar o modal
+  // Estado local para controlar a abertura do modal 'Nova'
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // Filtrar apenas despesas fixas do mês selecionado
@@ -169,6 +169,8 @@ export default function FixasTab({ onBack, selectedMonth }) {
   }, [fixedExpenses]);
 
   const handleEdit = (item) => {
+    // Para edição, ainda usamos o modal global se ele estiver configurado, 
+    // ou você pode adaptar para usar o estado local também.
     showModal('novaDespesa', { despesaParaEditar: item });
   };
 
@@ -184,11 +186,39 @@ export default function FixasTab({ onBack, selectedMonth }) {
         await toggleFixedExpensePaidStatus(item.id, !item.paid);
       } else {
         console.error("Função toggleFixedExpensePaidStatus não encontrada no contexto!");
-        alert("Erro: Função de atualizar pagamento não encontrada. Verifique o FinanceContext.");
+        alert("Erro no contexto: função de status indisponível.");
       }
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      alert("Não foi possível atualizar o status de pagamento.");
+      alert("Não foi possível atualizar o status.");
+    }
+  };
+
+  // --- FUNÇÃO PARA SALVAR A NOVA DESPESA ---
+  const handleSaveNewExpense = async (payload) => {
+    try {
+      if (!addDespesa) {
+        alert("Erro: Função addDespesa não encontrada no FinanceContext.");
+        return;
+      }
+
+      // Adiciona flags necessárias para identificar como despesa fixa
+      const expenseData = {
+        ...payload,
+        type: 'expense',
+        is_fixed: true,
+        // Garante que tenha uma data baseada no input 'startDate'
+        date: payload.startDate 
+      };
+
+      await addDespesa(expenseData);
+      
+      // Fecha o modal após sucesso
+      setIsNewModalOpen(false);
+
+    } catch (error) {
+      console.error("Erro ao salvar despesa fixa:", error);
+      alert("Ocorreu um erro ao salvar a despesa.");
     }
   };
 
@@ -214,7 +244,7 @@ export default function FixasTab({ onBack, selectedMonth }) {
               <span className="font-bold text-lg">Despesas Fixas</span>
             </div>
 
-            {/* Botão que ativa o estado local */}
+            {/* BOTÃO NOVA FIXA */}
             <button 
               onClick={() => setIsNewModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
@@ -274,11 +304,15 @@ export default function FixasTab({ onBack, selectedMonth }) {
         </div>
       </motion.div>
 
-      {/* CORREÇÃO: Envolvemos o NewFixedExpenseModal com o componente <Dialog> Root.
-         O Dialog controla o estado de 'open', e o NewFixedExpenseModal renderiza o conteúdo.
+      {/* CORREÇÃO FINAL: 
+         1. Envolvemos o Modal com <Dialog> para criar o contexto do portal.
+         2. Passamos onSave={handleSaveNewExpense} para a função funcionar.
       */}
       <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
-        <NewFixedExpenseModal onClose={() => setIsNewModalOpen(false)} />
+        <NewFixedExpenseModal 
+          onClose={() => setIsNewModalOpen(false)} 
+          onSave={handleSaveNewExpense} 
+        />
       </Dialog>
     </>
   );
