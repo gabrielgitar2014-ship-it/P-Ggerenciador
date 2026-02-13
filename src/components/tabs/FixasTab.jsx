@@ -35,7 +35,6 @@ const getPaymentIcon = (method) => {
 const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }) => {
   const [showActions, setShowActions] = useState(false);
   
-  // Verifica se está pago (garante booleano)
   const isPaid = !!item.paid; 
 
   return (
@@ -55,7 +54,6 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
           
-          {/* BOTÃO DE CHECK (TOGGLE) */}
           <button 
             onClick={() => onTogglePay(item)}
             className={`
@@ -71,7 +69,6 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
           </button>
 
           <div className="flex flex-col min-w-0">
-            {/* Título Riscado se Pago */}
             <h3 className={`text-sm font-bold truncate pr-2 transition-all ${
               isPaid 
                 ? 'text-slate-500 dark:text-slate-500 line-through decoration-slate-400' 
@@ -86,7 +83,6 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
                  {item.metodo_pagamento || 'Não inf.'}
               </div>
 
-              {/* LABEL VISÍVEL DE STATUS */}
               <span className={`
                 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider
                 ${isPaid 
@@ -141,12 +137,11 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
 };
 
 export default function FixasTab({ onBack, selectedMonth }) {
-  // Importamos addDespesa do contexto para poder salvar
-  const { transactions, deleteDespesa, toggleFixedExpensePaidStatus, addDespesa } = useFinance();
+  // CORREÇÃO: Usando 'saveFixedExpense' ao invés de 'addDespesa'
+  const { transactions, deleteDespesa, toggleFixedExpensePaidStatus, saveFixedExpense } = useFinance();
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
   
-  // Estado local para controlar a abertura do modal 'Nova'
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // Filtrar apenas despesas fixas do mês selecionado
@@ -169,8 +164,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
   }, [fixedExpenses]);
 
   const handleEdit = (item) => {
-    // Para edição, ainda usamos o modal global se ele estiver configurado, 
-    // ou você pode adaptar para usar o estado local também.
     showModal('novaDespesa', { despesaParaEditar: item });
   };
 
@@ -185,36 +178,41 @@ export default function FixasTab({ onBack, selectedMonth }) {
       if (toggleFixedExpensePaidStatus) {
         await toggleFixedExpensePaidStatus(item.id, !item.paid);
       } else {
-        console.error("Função toggleFixedExpensePaidStatus não encontrada no contexto!");
         alert("Erro no contexto: função de status indisponível.");
       }
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      alert("Não foi possível atualizar o status.");
     }
   };
 
-  // --- FUNÇÃO PARA SALVAR A NOVA DESPESA ---
+  // --- FUNÇÃO CORRIGIDA PARA SALVAR A NOVA DESPESA ---
   const handleSaveNewExpense = async (payload) => {
     try {
-      if (!addDespesa) {
-        alert("Erro: Função addDespesa não encontrada no FinanceContext.");
+      if (!saveFixedExpense) {
+        alert("Erro Crítico: Função saveFixedExpense não encontrada no FinanceContext.");
         return;
       }
 
-      // Adiciona flags necessárias para identificar como despesa fixa
+      // Mapeamento correto dos dados do Modal para o Contexto
       const expenseData = {
-        ...payload,
-        type: 'expense',
+        description: payload.description,
+        amount: payload.amount,
+        categoria_id: payload.categoria_id,
+        // O modal manda 'bank', mas o contexto espera 'metodo_pagamento'
+        metodo_pagamento: payload.bank, 
+        // O modal manda 'startDate', o contexto espera 'date'
+        date: payload.startDate, 
         is_fixed: true,
-        // Garante que tenha uma data baseada no input 'startDate'
-        date: payload.startDate 
+        recurrence: payload.recurrence // Opcional, dependendo se o backend usa
       };
 
-      await addDespesa(expenseData);
+      const result = await saveFixedExpense(expenseData);
       
-      // Fecha o modal após sucesso
-      setIsNewModalOpen(false);
+      if (result.ok) {
+        setIsNewModalOpen(false);
+      } else {
+        alert("Erro ao salvar: " + (result.error?.message || "Erro desconhecido"));
+      }
 
     } catch (error) {
       console.error("Erro ao salvar despesa fixa:", error);
@@ -244,7 +242,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
               <span className="font-bold text-lg">Despesas Fixas</span>
             </div>
 
-            {/* BOTÃO NOVA FIXA */}
             <button 
               onClick={() => setIsNewModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
@@ -261,7 +258,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
               {valuesVisible ? formatCurrencyBRL(totalFixas) : '••••••'}
             </h1>
             
-            {/* Subtotal Pendente */}
             {totalPendente > 0 ? (
                <div className="mt-2 px-3 py-1 bg-amber-500/20 backdrop-blur-md rounded-full border border-amber-500/30 text-xs font-bold text-amber-100 flex items-center gap-1.5 shadow-sm">
                  <Clock className="w-5 h-5" />
@@ -277,7 +273,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
             )}
           </div>
 
-          {/* Decorativos de Fundo */}
           <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-purple-500/30 rounded-full blur-3xl" />
           <div className="absolute bottom-[-20%] left-[-10%] w-32 h-32 bg-indigo-500/30 rounded-full blur-3xl" />
         </div>
@@ -304,10 +299,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
         </div>
       </motion.div>
 
-      {/* CORREÇÃO FINAL: 
-         1. Envolvemos o Modal com <Dialog> para criar o contexto do portal.
-         2. Passamos onSave={handleSaveNewExpense} para a função funcionar.
-      */}
       <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
         <NewFixedExpenseModal 
           onClose={() => setIsNewModalOpen(false)} 
