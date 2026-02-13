@@ -11,7 +11,9 @@ import {
   Plus 
 } from 'lucide-react';
 
-// --- IMPORT O MODAL ---
+// --- IMPORTS ADICIONADOS ---
+// Importamos o Dialog Root para envolver o modal
+import { Dialog } from '../../components/ui/dialog'; 
 import NewFixedExpenseModal from '../modals/NewFixedExpenseModal';
 
 // --- HELPERS ---
@@ -144,8 +146,7 @@ export default function FixasTab({ onBack, selectedMonth }) {
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
   
-  // --- NOVO ESTADO LOCAL PARA O MODAL ---
-  // Usamos isso para driblar o erro de "modal desconhecido" no contexto global
+  // Estado local para controlar o modal
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // Filtrar apenas despesas fixas do mês selecionado
@@ -213,7 +214,7 @@ export default function FixasTab({ onBack, selectedMonth }) {
               <span className="font-bold text-lg">Despesas Fixas</span>
             </div>
 
-            {/* BOTÃO CORRIGIDO: Usa estado local ao invés do showModal */}
+            {/* Botão que ativa o estado local */}
             <button 
               onClick={() => setIsNewModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
@@ -273,14 +274,12 @@ export default function FixasTab({ onBack, selectedMonth }) {
         </div>
       </motion.div>
 
-      {/* RENDERIZAÇÃO LOCAL DO MODAL */}
-      {/* Como não podemos registrar no contexto global, renderizamos aqui condicionalmente */}
-      {isNewModalOpen && (
-        <NewFixedExpenseModal 
-          isOpen={isNewModalOpen}
-          onClose={() => setIsNewModalOpen(false)} 
-        />
-      )}
+      {/* CORREÇÃO: Envolvemos o NewFixedExpenseModal com o componente <Dialog> Root.
+         O Dialog controla o estado de 'open', e o NewFixedExpenseModal renderiza o conteúdo.
+      */}
+      <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
+        <NewFixedExpenseModal onClose={() => setIsNewModalOpen(false)} />
+      </Dialog>
     </>
   );
 }
