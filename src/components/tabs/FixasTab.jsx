@@ -8,8 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, AlertCircle, Edit2, Trash2, MoreVertical, X, 
   CreditCard, DollarSign, Wallet, CheckCircle2, Circle, Clock,
-  Plus // <--- ADICIONADO: Ícone para o botão
+  Plus 
 } from 'lucide-react';
+
+// --- IMPORTE SOLICITADO ---
+import NewFixedExpenseModal from '../modals/NewFixedExpenseModal';
 
 // --- HELPERS ---
 function formatCurrencyBRL(value) {
@@ -137,7 +140,6 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
 };
 
 export default function FixasTab({ onBack, selectedMonth }) {
-  // CORREÇÃO: Importando toggleFixedExpensePaidStatus do contexto original
   const { transactions, deleteDespesa, toggleFixedExpensePaidStatus } = useFinance();
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
@@ -171,8 +173,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
     }
   };
 
-  // --- FUNÇÃO CORRIGIDA ---
-  // Usa a função dedicada do contexto para atualizar APENAS o status 'paid'
   const handleTogglePay = async (item) => {
     try {
       if (toggleFixedExpensePaidStatus) {
@@ -196,14 +196,27 @@ export default function FixasTab({ onBack, selectedMonth }) {
     >
       {/* HEADER */}
       <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 pb-10 rounded-b-[2.5rem] shadow-xl text-white shrink-0 z-10 relative overflow-hidden">
-        <div className="flex items-center gap-3 mb-6 relative z-10">
+        
+        {/* Topo do Header Ajustado */}
+        <div className="flex items-center justify-between mb-6 relative z-10">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onBack}
+              className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+            <span className="font-bold text-lg">Despesas Fixas</span>
+          </div>
+
+          {/* BOTÃO ADICIONADO NA PARTE SUPERIOR */}
           <button 
-            onClick={onBack}
-            className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full transition-colors"
+            onClick={() => showModal('novaDespesaFixa')}
+            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl transition-colors font-bold text-sm text-white"
           >
-            <ChevronLeft className="w-6 h-6 text-white" />
+            <Plus className="w-4 h-4" />
+            <span>Nova</span>
           </button>
-          <span className="font-bold text-lg">Despesas Fixas</span>
         </div>
 
         {/* Display do Total */}
@@ -254,18 +267,6 @@ export default function FixasTab({ onBack, selectedMonth }) {
           ))
         )}
       </div>
-
-      {/* --- ADIÇÃO: Botão para abrir o NewFixedExpenseModal --- */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => showModal('novaDespesaFixa')} // Certifique-se que o ID 'novaDespesaFixa' está configurado no ModalContext para abrir o NewFixedExpenseModal.jsx
-        className="absolute bottom-6 right-6 flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-full shadow-lg shadow-purple-600/30 z-20 font-bold transition-colors"
-      >
-        <Plus className="w-5 h-5" />
-        <span>Nova Fixa</span>
-      </motion.button>
-      
     </motion.div>
   );
 }
