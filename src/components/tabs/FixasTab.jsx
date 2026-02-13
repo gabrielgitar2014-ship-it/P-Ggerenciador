@@ -35,6 +35,7 @@ const getPaymentIcon = (method) => {
 const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }) => {
   const [showActions, setShowActions] = useState(false);
   
+  // Verifica se está pago (garante booleano)
   const isPaid = !!item.paid; 
 
   return (
@@ -54,6 +55,7 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 overflow-hidden">
           
+          {/* BOTÃO DE CHECK (TOGGLE) */}
           <button 
             onClick={() => onTogglePay(item)}
             className={`
@@ -69,6 +71,7 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
           </button>
 
           <div className="flex flex-col min-w-0">
+            {/* Título Riscado se Pago */}
             <h3 className={`text-sm font-bold truncate pr-2 transition-all ${
               isPaid 
                 ? 'text-slate-500 dark:text-slate-500 line-through decoration-slate-400' 
@@ -83,6 +86,7 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
                  {item.metodo_pagamento || 'Não inf.'}
               </div>
 
+              {/* LABEL VISÍVEL DE STATUS */}
               <span className={`
                 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider
                 ${isPaid 
@@ -137,7 +141,7 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, valuesVisible }
 };
 
 export default function FixasTab({ onBack, selectedMonth }) {
-  // CORREÇÃO: Usando 'saveFixedExpense' ao invés de 'addDespesa'
+  // ATENÇÃO: Se o seu context não exportar saveFixedExpense, verifique o arquivo FinanceContext.jsx
   const { transactions, deleteDespesa, toggleFixedExpensePaidStatus, saveFixedExpense } = useFinance();
   const { showModal } = useModal();
   const { valuesVisible } = useVisibility();
@@ -178,6 +182,7 @@ export default function FixasTab({ onBack, selectedMonth }) {
       if (toggleFixedExpensePaidStatus) {
         await toggleFixedExpensePaidStatus(item.id, !item.paid);
       } else {
+        console.error("Função toggleFixedExpensePaidStatus não encontrada no contexto.");
         alert("Erro no contexto: função de status indisponível.");
       }
     } catch (error) {
@@ -185,7 +190,7 @@ export default function FixasTab({ onBack, selectedMonth }) {
     }
   };
 
-  // --- FUNÇÃO CORRIGIDA PARA SALVAR A NOVA DESPESA ---
+  // --- FUNÇÃO CORRIGIDA PARA O SCHEMA REAL ---
   const handleSaveNewExpense = async (payload) => {
     try {
       if (!saveFixedExpense) {
@@ -193,17 +198,46 @@ export default function FixasTab({ onBack, selectedMonth }) {
         return;
       }
 
-      // Mapeamento correto dos dados do Modal para o Contexto
+      // 1. Construir a Data Completa (YYYY-MM-DD)
+      // O Modal manda startDate="2026-03" e dueDate="15"
+      const day = String(payload.dueDate).padStart(2, '0');
+      const fullDate = `${payload.startDate}-${day}`;
+
+      // 2. Mapeamento para as colunas exatas do Schema public.transactions
       const expenseData = {
         description: payload.description,
         amount: payload.amount,
-        categoria_id: payload.categoria_id,
-        // O modal manda 'bank', mas o contexto espera 'metodo_pagamento'
-        metodo_pagamento: payload.bank, 
-        // O modal manda 'startDate', o contexto espera 'date'
-        date: payload.startDate, 
+        
+        // SCHEMA: date (date not null)
+        date: fullDate, 
+        
+        // SCHEMA: type (text not null - check constraints: 'income' or 'expense')
+        type: 'expense', 
+
+        // SCHEMA: is_fixed (boolean)
         is_fixed: true,
-        recurrence: payload.recurrence // Opcional, dependendo se o backend usa
+
+        // SCHEMA: categoria_id (integer)
+        categoria_id: payload.categoria_id,
+
+        // SCHEMA: bank (text) ou metodo_pagamento (text). 
+        // Enviamos para os dois para garantir, ou confie no mapeamento do context.
+        metodo_pagamento: payload.bank, 
+        bank: payload.bank,
+
+        // SCHEMA: "dueDate" (integer null)
+        // Nota: precisa ser enviado como chave string "dueDate" para o Supabase respeitar o case se necessário
+        "dueDate": parseInt(payload.dueDate), 
+
+        // SCHEMA: "isRecurring" (integer null)
+        // 1 para sim, 0 para não (ou null)
+        "isRecurring": payload.recurrence?.type !== 'single' ? 1 : 0,
+
+        // SCHEMA: installments (integer null)
+        installments: payload.recurrence?.installments || null,
+
+        // Campos auxiliares
+        paid: false
       };
 
       const result = await saveFixedExpense(expenseData);
