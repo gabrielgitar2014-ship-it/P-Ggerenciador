@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
@@ -5,8 +7,6 @@ import { FinanceProvider } from './context/FinanceContext';
 import { ModalProvider } from './context/ModalContext';
 import { VisibilityProvider } from './context/VisibilityContext';
 import { supabase } from './supabaseClient';
-// O Dialog foi removido pois causava conflito com o modal customizado
-// import { Dialog } from '@/components/ui/dialog'; 
 
 // Componentes
 import Dashboard from './pages/Dashboard';
@@ -33,23 +33,22 @@ const getCurrentMonth = () => {
 };
 
 // --- WRAPPER PARA A PÁGINA DO LEITOR ---
-// Necessário para usar o hook useNavigate dentro do Router
 const LeitorRouteWrapper = ({ setAiData, setIsNovaDespesaOpen }) => {
   const navigate = useNavigate();
 
   return (
     <LeitorDeFaturaPage 
-      onClose={() => navigate(-1)} // Volta para a página anterior
+      onClose={() => navigate(-1)} 
       onFinish={(data) => {
-        setAiData(data); // Salva os dados no estado do App
-        setIsNovaDespesaOpen(true); // Reabre o modal
-        navigate('/'); // Volta para a dashboard
+        setAiData(data); 
+        setIsNovaDespesaOpen(true); 
+        navigate('/'); 
       }}
     />
   );
 };
 
-// --- LAYOUT PROTEGIDO ---
+// --- LAYOUT PROTEGIDO (CORRIGIDO PARA O CHATBOT) ---
 const ProtectedLayout = ({ 
   session, 
   selectedMonth, 
@@ -61,16 +60,26 @@ const ProtectedLayout = ({
   if (!session) return <Navigate to="/login" replace />;
 
   return (
-    <MainLayout selectedMonth={selectedMonth} onGoToHome={handleBackToMain}>
-      <Outlet context={{ 
-        selectedMonth, 
-        handlePreviousMonth, 
-        handleNextMonth, 
-        openNovaDespesa: () => setIsNovaDespesaOpen(true) 
-      }} />
-      <Chatbot />
+    <>
+      {/* 1. O Layout Principal fica no fundo */}
+      <MainLayout selectedMonth={selectedMonth} onGoToHome={handleBackToMain}>
+        <Outlet context={{ 
+          selectedMonth, 
+          handlePreviousMonth, 
+          handleNextMonth, 
+          openNovaDespesa: () => setIsNovaDespesaOpen(true) 
+        }} />
+      </MainLayout>
+
+      {/* 2. Chatbot isolado: Fora do MainLayout para garantir sobreposição total */}
+      {/* Usamos 'fixed' e z-index altíssimo para ele flutuar sobre Modais e Cards */}
+      <div className="fixed bottom-4 right-4 z-[9999] isolate pointer-events-auto">
+        <Chatbot />
+      </div>
+
+      {/* 3. PWA Updater também flutuante */}
       <PwaUpdater />
-    </MainLayout>
+    </>
   );
 };
 
@@ -135,13 +144,12 @@ function App() {
                         handlePreviousMonth={handlePreviousMonth}
                         handleNextMonth={handleNextMonth}
                         setIsNovaDespesaOpen={setIsNovaDespesaOpen}
-                        // Passa a função que usa a REF para navegar
                         handleBackToMain={() => dashboardRef.current?.goToGeneral()}
                       />
                     }>
                       <Route path="/" element={
                         <Dashboard 
-                          ref={dashboardRef} // Conecta a REF aqui
+                          ref={dashboardRef} 
                           selectedMonth={selectedMonth}
                           onPreviousMonth={handlePreviousMonth}
                           onNextMonth={handleNextMonth}
@@ -150,7 +158,7 @@ function App() {
                       } />
                     </Route>
 
-                    {/* ROTA PARA O LEITOR DE FATURA (FORA DO MAIN LAYOUT PARA FULLSCREEN) */}
+                    {/* ROTA PARA O LEITOR DE FATURA */}
                     <Route path="/leitor-fatura" element={
                        <LeitorRouteWrapper 
                           setAiData={setAiData} 
@@ -161,14 +169,12 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
 
-                  {/* MODAL GLOBAL CORRIGIDO */}
-                  {/* Removemos o wrapper <Dialog> para evitar conflito de sobreposição. */}
-                  {/* Agora passamos isOpen e controlamos o fechamento diretamente aqui. */}
+                  {/* MODAL GLOBAL */}
                   <NovaDespesaModal 
                     isOpen={isNovaDespesaOpen}
                     onClose={() => {
                       setIsNovaDespesaOpen(false);
-                      setAiData(null); // Limpa os dados da IA ao fechar
+                      setAiData(null); 
                     }}
                     externalData={aiData} 
                   />
