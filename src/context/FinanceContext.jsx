@@ -149,8 +149,16 @@ export function FinanceProvider({ children }) {
         metodo_pagamento: despesa.metodo_pagamento,
         is_fixed: true,
         
-        // CORREÇÃO: Garante que o status 'paid' seja enviado e salvo
-        // Se vier undefined, assume false. Se vier true/false, mantém.
+       
+type: 'expense', // O banco EXIGE que essa coluna não seja nula
+        // -----------------------------
+        
+        // Repassando campos opcionais corretamente
+        "dueDate": despesa.dueDate,
+        "isRecurring": despesa.isRecurring,
+        installments: despesa.installments,
+
+        
         paid: despesa.paid !== undefined ? despesa.paid : false
       };
 
@@ -366,4 +374,5 @@ export const useFinance = () => {
   if (context === undefined) throw new Error('useFinance deve ser usado dentro de um FinanceProvider');
   return context;
 };
+
 
