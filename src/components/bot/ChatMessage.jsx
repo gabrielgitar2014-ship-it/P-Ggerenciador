@@ -20,21 +20,35 @@ export default function ChatMessage({ author, text }) {
         }`}
       >
         {isBot ? (
-          <div className="markdown-content text-sm leading-relaxed">
+          // AQUI ESTÁ A MÁGICA DO MARKDOWN
+          <div className="markdown-content text-sm leading-relaxed overflow-hidden">
             <ReactMarkdown
               components={{
-                # Estilização das listas solicitadas no prompt do Gen
-                ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-2" {...props} />,
-                li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                // Títulos (### no markdown)
+                h1: ({ node, ...props }) => <h1 className="text-lg font-bold mt-2 mb-2" {...props} />,
+                h2: ({ node, ...props }) => <h2 className="text-base font-bold mt-2 mb-2" {...props} />,
+                h3: ({ node, ...props }) => <h3 className="text-sm font-bold mt-3 mb-1 uppercase text-slate-500" {...props} />,
+                
+                // Listas (- item no markdown)
+                ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
+                ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
+                li: ({ node, ...props }) => <li className="pl-1" {...props} />,
+                
+                // Parágrafos
                 p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                strong: ({ node, ...props }) => <span className="font-bold text-blue-500 dark:text-blue-400" {...props} />,
+                
+                // Negrito (**texto**) - Colocamos em AZUL para destacar valores
+                strong: ({ node, ...props }) => <span className="font-bold text-blue-600 dark:text-blue-400" {...props} />,
+                
+                // Links
+                a: ({ node, ...props }) => <a className="text-blue-500 underline hover:text-blue-700" target="_blank" rel="noopener noreferrer" {...props} />,
               }}
             >
               {text}
             </ReactMarkdown>
           </div>
         ) : (
+          // Mensagem do Usuário (Texto normal)
           <p className="text-sm whitespace-pre-wrap">{text}</p>
         )}
       </div>
