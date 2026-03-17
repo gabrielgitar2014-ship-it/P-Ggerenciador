@@ -14,7 +14,7 @@ import AllExpensesPage from "./AllExpensesPage";
 import CardDetailPage from "./CardDetailPage";
 import CategoryDetailPage from "./CategoryDetailPage";
 import InvoiceDetailPage from "./InvoiceDetailPage"; // <--- NOVO IMPORT
-
+import RendaTab from "../components/tabs/RendaTab.jsx"; // Ajuste o caminho conforme necessário
 // --- CONFIGURAÇÃO DE ANIMAÇÕES ---
 const variants = {
   enter: (direction) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }),
@@ -126,7 +126,15 @@ const Dashboard = forwardRef(({
                   onOpenNovaDespesa={onOpenNovaDespesa} 
                   selectedMonth={selectedMonth} 
                   parcelasDoMes={parcelasDoMesSelecionado} 
+                
                />;
+
+case 'rendas': 
+        return <RendaTab 
+                  selectedMonth={selectedMonth} 
+                  onBack={handleBackToMain} // Caso precise colocar um botão de voltar dentro dele depois
+               />;
+
     }
   };
 
