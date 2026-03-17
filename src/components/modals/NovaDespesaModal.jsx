@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../../context/FinanceContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Check, Calendar, DollarSign, Tag, CreditCard, 
   Layers, AlertCircle, Trash2, HelpCircle, ThumbsUp, ThumbsDown,
-  Calculator, CalendarDays // Adicionado CalendarDays para o ícone de data final
+  Calculator, CalendarDays 
 } from 'lucide-react';
 
 // --- HELPERS ---
@@ -45,6 +45,8 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
   const { 
     categorias, 
     bancos, 
+    transactions,
+    variableExpenses,
     saveVariableExpense, 
     saveFixedExpense,
     deleteDespesa 
@@ -75,6 +77,37 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcParcelaValue, setCalcParcelaValue] = useState('');
   const [calcParcelaQtd, setCalcParcelaQtd] = useState(2);
+
+  // --- ESTADOS DO AUTOCOMPLETAR ---
+  const [filteredSuggestions, setFilteredSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionRef = useRef(null);
+
+  // --- EXTRAÇÃO DO HISTÓRICO DE DESCRIÇÕES ---
+  const historicoDescricoes = useMemo(() => {
+    const descricoes = new Set();
+    
+    // Pega descrições das transações fixas/rendas passadas
+    if (transactions) {
+      transactions.forEach(t => {
+        if (t.type === 'expense' && t.description) {
+          descricoes.add(t.description.trim());
+        }
+      });
+    }
+    
+    // Pega descrições das despesas variáveis
+    if (variableExpenses) {
+      variableExpenses.forEach(v => {
+        if (v.description || v.title) {
+          descricoes.add((v.description || v.title).trim());
+        }
+      });
+    }
+    
+    // Retorna um array limpo
+    return Array.from(descricoes).filter(Boolean);
+  }, [transactions, variableExpenses]);
 
   // --- CONFIGURAÇÃO INICIAL ---
   useEffect(() => {
@@ -124,8 +157,20 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
       setShowCalculator(false);
       setCalcParcelaValue('');
       setCalcParcelaQtd(2);
+      setShowSuggestions(false);
     }
   }, [isOpen, despesaParaEditar]);
+
+  // Fecha as sugestões se clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // --- PREDIÇÃO DE FATURA ---
   useEffect(() => {
@@ -171,6 +216,27 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
 
   // --- HANDLERS ---
   const handleAmountChange = (e) => setAmountStr(formatCurrencyInput(e.target.value));
+
+  const handleDescriptionChange = (e) => {
+    const val = e.target.value;
+    setDescription(val);
+    
+    if (val.trim().length > 0) {
+      const matches = historicoDescricoes.filter(desc => 
+        desc.toLowerCase().includes(val.toLowerCase()) && desc.toLowerCase() !== val.toLowerCase()
+      ).slice(0, 4); // Limita a 4 sugestões para não poluir a tela
+
+      setFilteredSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setDescription(suggestion);
+    setShowSuggestions(false);
+  };
 
   const handleClose = () => {
     if (onClose) onClose();
@@ -433,20 +499,48 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
               )}
             </div>
 
-            {/* DESCRIÇÃO */}
-            <div>
+            {/* DESCRIÇÃO COM AUTOCOMPLETAR */}
+            <div className="relative" ref={suggestionRef}>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Descrição</label>
               <input
                 type="text"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={handleDescriptionChange}
+                onFocus={() => {
+                  if (description.trim().length > 0 && filteredSuggestions.length > 0) {
+                    setShowSuggestions(true);
+                  }
+                }}
                 placeholder="Ex: Supermercado..."
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100"
+                autoComplete="off"
               />
+              
+              {/* DROPDOWN DE SUGESTÕES */}
+              <AnimatePresence>
+                {showSuggestions && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden"
+                  >
+                    {filteredSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(suggestion)}
+                        className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* DATA & CATEGORIA & MÉTODO */}
-            {/* Reorganizado para ficar em um bloco único antes das perguntas de fatura/parcela */}
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 sm:col-span-1">
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Categoria</label>
@@ -495,7 +589,6 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
             </div>
 
             {/* SEÇÃO DINÂMICA: FATURA E PARCELAMENTO */}
-            {/* Só exibe se não for despesa fixa e se tiver método selecionado */}
             {!isFixed && paymentMethod && (
               <div className="space-y-4 pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
                 
