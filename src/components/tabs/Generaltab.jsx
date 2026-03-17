@@ -76,11 +76,17 @@ function GlassCard({ className = "", children }) {
 }
 
 // ---------- UI COMPONENTS ----------
-const HeroCard = ({ title, value, icon: Icon, iconBg, valueColor, subContent }) => {
+const HeroCard = ({ title, value, icon: Icon, iconBg, valueColor, subContent, onClick }) => {
   const { valuesVisible } = useVisibility();
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <GlassCard className="p-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ duration: 0.35 }}
+      onClick={onClick}
+      className={onClick ? "cursor-pointer transition-transform hover:scale-[1.02] active:scale-95 h-full" : "h-full"}
+    >
+      <GlassCard className="p-6 h-full">
         <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full blur-3xl opacity-60 bg-gradient-to-br from-indigo-300/40 via-emerald-200/20 to-rose-200/20 dark:from-indigo-400/15 dark:via-emerald-400/10 dark:to-rose-400/10 pointer-events-none" />
         <div className="relative flex items-start justify-between gap-4 mb-6">
           <div>
@@ -355,6 +361,7 @@ export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
           icon={CircleDollarSign}
           iconBg="bg-emerald-500/85"
           valueColor="text-emerald-700 dark:text-emerald-400"
+          onClick={() => onNavigate("rendas")} // <--- AQUI: ADICIONADO O ONCLICK
         />
 
         <HeroCard
