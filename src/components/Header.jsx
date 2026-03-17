@@ -28,7 +28,7 @@ function MenuItem({ icon: Icon, label, helper, onClick, spinning, disabled }) {
   );
 }
 
-export default function Header({ selectedMonth, onGoToHome }) {
+export default function Header({ selectedMonth, onGoToHome, onPreviousMonth, onNextMonth }) {
   const { valuesVisible, toggleValuesVisibility } = useVisibility();
   const { theme, setTheme } = useTheme();
   
@@ -130,9 +130,17 @@ export default function Header({ selectedMonth, onGoToHome }) {
           </button>
         </div>
 
-        {/* Direita: Mês/Ano */}
-        <div className="flex-1 flex items-center justify-end text-right">
-          <div className="flex flex-col leading-tight">
+        {/* Direita: Mês/Ano com Navegação */}
+        <div className="flex-1 flex items-center justify-end">
+          <button 
+            onClick={onPreviousMonth}
+            className="p-2 text-slate-500 hover:bg-slate-200/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-100 rounded-full transition-colors"
+            aria-label="Mês anterior"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          
+          <div className="flex flex-col leading-tight text-center min-w-[75px] mx-1">
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 capitalize">
               {displayMonth}
             </span>
@@ -140,6 +148,14 @@ export default function Header({ selectedMonth, onGoToHome }) {
               {displayYear}
             </span>
           </div>
+
+          <button 
+            onClick={onNextMonth}
+            className="p-2 text-slate-500 hover:bg-slate-200/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-100 rounded-full transition-colors"
+            aria-label="Próximo mês"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
         </div>
       </div>
     </header>
