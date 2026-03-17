@@ -83,30 +83,45 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionRef = useRef(null);
 
-  // --- EXTRAÇÃO DO HISTÓRICO DE DESCRIÇÕES ---
+  // --- EXTRAÇÃO DO HISTÓRICO COM CATEGORIA ---
   const historicoDescricoes = useMemo(() => {
-    const descricoes = new Set();
+    // Usamos um Map para garantir que não teremos nomes duplicados.
+    // O valor do Map será um objeto contendo o nome e a categoria_id
+    const historicoMap = new Map();
     
-    // Pega descrições das transações fixas/rendas passadas
+    const registrarNoHistorico = (desc, catId) => {
+      if (!desc) return;
+      const nomeLimpo = desc.trim();
+      const chave = nomeLimpo.toLowerCase();
+      
+      // Se ainda não salvamos esse nome, adicionamos com a categoria correspondente
+      if (!historicoMap.has(chave)) {
+        historicoMap.set(chave, { 
+          label: nomeLimpo, 
+          categoryId: catId 
+        });
+      }
+    };
+
+    // Pega dados das despesas passadas (como assumimos que a lista vem da mais recente para a mais antiga,
+    // ele vai memorizar a última categoria que você usou para essa despesa)
     if (transactions) {
       transactions.forEach(t => {
         if (t.type === 'expense' && t.description) {
-          descricoes.add(t.description.trim());
+          registrarNoHistorico(t.description, t.categoria_id);
         }
       });
     }
     
-    // Pega descrições das despesas variáveis
+    // Pega dados das despesas variáveis
     if (variableExpenses) {
       variableExpenses.forEach(v => {
-        if (v.description || v.title) {
-          descricoes.add((v.description || v.title).trim());
-        }
+        const desc = v.description || v.title;
+        registrarNoHistorico(desc, v.categoria_id);
       });
     }
     
-    // Retorna um array limpo
-    return Array.from(descricoes).filter(Boolean);
+    return Array.from(historicoMap.values());
   }, [transactions, variableExpenses]);
 
   // --- CONFIGURAÇÃO INICIAL ---
@@ -222,9 +237,9 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
     setDescription(val);
     
     if (val.trim().length > 0) {
-      const matches = historicoDescricoes.filter(desc => 
-        desc.toLowerCase().includes(val.toLowerCase()) && desc.toLowerCase() !== val.toLowerCase()
-      ).slice(0, 4); // Limita a 4 sugestões para não poluir a tela
+      const matches = historicoDescricoes.filter(item => 
+        item.label.toLowerCase().includes(val.toLowerCase()) && item.label.toLowerCase() !== val.toLowerCase()
+      ).slice(0, 4); // Limita a 4 sugestões
 
       setFilteredSuggestions(matches);
       setShowSuggestions(matches.length > 0);
@@ -233,8 +248,16 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
     }
   };
 
-  const handleSelectSuggestion = (suggestion) => {
-    setDescription(suggestion);
+  const handleSelectSuggestion = (suggestionObj) => {
+    // 1. Preenche a descrição com o nome clicado
+    setDescription(suggestionObj.label);
+    
+    // 2. Preenche a categoria automaticamente (se existir no histórico)
+    if (suggestionObj.categoryId) {
+      setCategoryId(String(suggestionObj.categoryId));
+    }
+
+    // Fecha a caixinha de sugestões
     setShowSuggestions(false);
   };
 
@@ -525,14 +548,14 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
                     exit={{ opacity: 0, y: -5 }}
                     className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden"
                   >
-                    {filteredSuggestions.map((suggestion, index) => (
+                    {filteredSuggestions.map((suggestionObj, index) => (
                       <button
                         key={index}
                         type="button"
-                        onClick={() => handleSelectSuggestion(suggestion)}
+                        onClick={() => handleSelectSuggestion(suggestionObj)}
                         className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
                       >
-                        {suggestion}
+                        {suggestionObj.label}
                       </button>
                     ))}
                   </motion.div>
