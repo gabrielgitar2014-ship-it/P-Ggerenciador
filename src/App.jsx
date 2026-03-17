@@ -62,7 +62,12 @@ const ProtectedLayout = ({
   return (
     <>
       {/* 1. O Layout Principal fica no fundo */}
-      <MainLayout selectedMonth={selectedMonth} onGoToHome={handleBackToMain}>
+      <MainLayout 
+        selectedMonth={selectedMonth} 
+        onGoToHome={handleBackToMain}
+        onPreviousMonth={handlePreviousMonth} // <-- CORREÇÃO: Passar função para o MainLayout
+        onNextMonth={handleNextMonth}         // <-- CORREÇÃO: Passar função para o MainLayout
+      >
         <Outlet context={{ 
           selectedMonth, 
           handlePreviousMonth, 
