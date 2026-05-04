@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, AlertCircle, Edit2, Trash2, MoreVertical, X, 
   CreditCard, DollarSign, Wallet, CheckCircle2, Circle, Clock,
-  Plus, FileText, Upload 
+  Plus, FileText, Upload, Download
 } from 'lucide-react';
 
 import { supabase } from '../../supabaseClient';
@@ -98,6 +98,14 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, onUploadRequest
               `}>
                 {isPaid ? 'Pago' : 'Pendente'}
               </span>
+
+              {/* LABEL DE COMPROVANTE */}
+              {item.comprovante_url && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 tracking-wider">
+                  <FileText className="w-3 h-3" />
+                  Comprovante
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -124,15 +132,44 @@ const FixedExpenseItem = ({ item, onEdit, onDelete, onTogglePay, onUploadRequest
             className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-200 dark:border-slate-800/50"
           >
             {item.comprovante_url && (
-              <a 
-                href={item.comprovante_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-bold rounded-lg hover:bg-green-100 transition-colors"
-                title="Ver Comprovante"
-              >
-                <FileText className="w-3.5 h-3.5" /> Comprovante
-              </a>
+              <>
+                <a 
+                  href={item.comprovante_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-bold rounded-lg hover:bg-green-100 transition-colors"
+                  title="Ver Comprovante"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Ver Comprovante
+                </a>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(item.comprovante_url);
+                      const blob = await response.blob();
+                      const downloadUrl = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.style.display = 'none';
+                      a.href = downloadUrl;
+                      // Tenta extrair o nome do arquivo da URL ou usa um padrão
+                      const fileName = item.comprovante_url.split('/').pop() || 'comprovante.png';
+                      a.download = fileName;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(downloadUrl);
+                      document.body.removeChild(a);
+                    } catch (error) {
+                      console.error('Erro ao baixar arquivo', error);
+                      alert('Não foi possível baixar o arquivo diretamente. Clique em "Ver" e faça o download.');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 text-xs font-bold rounded-lg hover:bg-cyan-100 transition-colors"
+                  title="Baixar Comprovante"
+                >
+                  <Download className="w-3.5 h-3.5" /> Baixar
+                </button>
+              </>
             )}
             {!item.comprovante_url && (
               <button 
