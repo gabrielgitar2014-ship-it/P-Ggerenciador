@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Check, Calendar, DollarSign, Tag, CreditCard, 
   Layers, AlertCircle, Trash2, HelpCircle, ThumbsUp, ThumbsDown,
-  Calculator, CalendarDays 
+  Calculator, CalendarDays, Search, Clock, List
 } from 'lucide-react';
 
 // --- HELPERS ---
@@ -47,6 +47,7 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
     bancos, 
     transactions,
     variableExpenses,
+    allParcelas,
     saveVariableExpense, 
     saveFixedExpense,
     deleteDespesa 
@@ -77,6 +78,66 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcParcelaValue, setCalcParcelaValue] = useState('');
   const [calcParcelaQtd, setCalcParcelaQtd] = useState(2);
+
+  // Estados de Histórico / Busca
+  const [activeTab, setActiveTab] = useState('form');
+  const [searchHistory, setSearchHistory] = useState('');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
+
+  const filteredHistory = useMemo(() => {
+    const allParcelasSafe = Array.isArray(allParcelas) ? allParcelas : [];
+    const variableExpensesSafe = Array.isArray(variableExpenses) ? variableExpenses : [];
+
+    // Base da lista são todas as parcelas, enriquecidas com dados da despesa pai.
+    // Isso inclui tanto despesas parceladas quanto as de pagamento único no crédito.
+    let baseList = allParcelasSafe.map(parcela => {
+      const parentExpense = variableExpensesSafe.find(ve => ve.id === parcela.despesa_id);
+      return {
+        // Dados da Parcela (prioridade)
+        ...parcela, 
+        id: `p-${parcela.id}`,
+        amount: parcela.amount,
+        date: parcela.data_parcela, // Data de vencimento da parcela
+        
+        // Dados da Despesa "Pai" (para contexto)
+        description: parentExpense?.description,
+        categoria_id: parentExpense?.categoria_id,
+        metodo_pagamento: parentExpense?.metodo_pagamento,
+        data_compra: parentExpense?.data_compra,
+        qtd_parcelas: parentExpense?.qtd_parcelas,
+        
+        // Campos para unificação
+        type: 'expense',
+      };
+    });
+    
+    // Ordenar pela DATA DA COMPRA, e depois pelo número da parcela
+    baseList.sort((a, b) => {
+      const dateA = new Date(a.data_compra || 0);
+      const dateB = new Date(b.data_compra || 0);
+      if (dateB.getTime() !== dateA.getTime()) {
+        return dateB - dateA;
+      }
+      return (a.numero_parcela || 0) - (b.numero_parcela || 0);
+    });
+
+    let result = baseList;
+
+    // Aplicar filtro de texto (se houver)
+    if (searchHistory) {
+      const term = searchHistory.toLowerCase();
+      result = result.filter(t => 
+        (t.description || '').toLowerCase().includes(term)
+      );
+    }
+
+    // Aplicar filtro de método de pagamento (se houver)
+    if (filterPaymentMethod) {
+      result = result.filter(t => t.metodo_pagamento === filterPaymentMethod);
+    }
+
+    return result.slice(0, 100); // Aumentei o limite para 100 para melhor visualização
+  }, [allParcelas, variableExpenses, searchHistory, filterPaymentMethod]);
 
   // --- ESTADOS DO AUTOCOMPLETAR ---
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
@@ -230,6 +291,14 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
   }, [isParcelado]);
 
   // --- HANDLERS ---
+  const handlePrefill = (item) => {
+    setDescription(item.description || item.title || '');
+    if (item.amount) setAmountStr(new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount));
+    if (item.categoria_id || item.category) setCategoryId(String(item.categoria_id || item.category));
+    if (item.metodo_pagamento || item.bank) setPaymentMethod(item.metodo_pagamento || item.bank);
+    setActiveTab('form');
+  };
+
   const handleAmountChange = (e) => setAmountStr(formatCurrencyInput(e.target.value));
 
   const handleDescriptionChange = (e) => {
@@ -413,16 +482,34 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
         >
           {/* HEADER */}
           <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white">
-              {despesaParaEditar ? 'Editar Despesa' : 'Nova Despesa'}
-            </h2>
-            <button onClick={handleClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 transition-colors">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setActiveTab('form')}
+                className={`text-lg font-bold transition-colors ${activeTab === 'form' ? 'text-slate-800 dark:text-white' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              >
+                {despesaParaEditar ? 'Editar Despesa' : 'Nova Despesa'}
+              </button>
+              {!despesaParaEditar && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-600 text-xl font-light">|</span>
+                  <button 
+                    onClick={() => setActiveTab('history')}
+                    className={`text-lg font-bold transition-colors flex items-center gap-2 ${activeTab === 'history' ? 'text-slate-800 dark:text-white' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                  >
+                    <List className="w-5 h-5" /> Histórico
+                  </button>
+                </>
+              )}
+            </div>
+            <button onClick={handleClose} className="p-2 bg-slate-200 dark:bg-slate-700 rounded-full hover:bg-slate-300 transition-colors ml-4 shrink-0">
               <X className="w-5 h-5 text-slate-600 dark:text-slate-300" />
             </button>
           </div>
 
           {/* BODY */}
           <div className="flex-1 overflow-y-auto p-6 space-y-5 relative">
+            {activeTab === 'form' ? (
+              <>
             
             {/* CALCULADORA OVERLAY */}
             <AnimatePresence>
@@ -734,26 +821,110 @@ export default function NovaDespesaModal({ isOpen, onClose, despesaParaEditar = 
                 </AnimatePresence>
               </div>
             )}
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="relative col-span-2 sm:col-span-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={searchHistory}
+                        onChange={(e) => setSearchHistory(e.target.value)}
+                        placeholder="Pesquisar..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="relative col-span-2 sm:col-span-1">
+                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                       <select 
+                         value={filterPaymentMethod} 
+                         onChange={(e) => setFilterPaymentMethod(e.target.value)} 
+                         className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:border-blue-500 appearance-none text-slate-800 dark:text-slate-100"
+                       >
+                         <option value="">Todos os Métodos</option>
+                         {bancos.map(b => <option key={b.id} value={b.nome}>{b.nome}</option>)}
+                         <option value="Dinheiro">Dinheiro</option>
+                         <option value="Outros">Outros</option>
+                       </select>
+                    </div>
+                </div>
+
+                <div className="space-y-2 max-h-[calc(80vh-150px)] overflow-y-auto pr-2">
+                  {filteredHistory.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">Nenhuma despesa encontrada.</div>
+                  ) : (
+                    filteredHistory.map((item, idx) => {
+                      const purchaseDate = item.data_compra;
+                      const purchaseDateObj = purchaseDate ? new Date(purchaseDate.split('T')[0] + 'T12:00:00Z') : null;
+                      const isInstallment = item.qtd_parcelas > 1;
+
+                      return (
+                        <button 
+                          type="button"
+                          key={item.id || idx} 
+                          onClick={() => handlePrefill(item)}
+                          className="w-full text-left p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center transition-all hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer"
+                        >
+                          <div className="flex-1 min-w-0 pr-4">
+                            <div className="font-bold text-slate-800 dark:text-white text-sm truncate">{item.description || item.title}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 bg-slate-200 dark:bg-slate-700/50 px-2 py-0.5 rounded-md truncate max-w-[100px]">
+                                {categorias.find(c => String(c.id) === String(item.categoria_id))?.nome || 'Sem Categoria'}
+                              </span>
+                              <span className="text-xs text-slate-400 flex items-center gap-1 shrink-0">
+                                <CalendarDays className="w-3 h-3" />
+                                {purchaseDateObj ? purchaseDateObj.toLocaleDateString('pt-BR') : 'Sem data'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                             <div className="font-bold text-red-600 dark:text-red-400 flex items-center gap-2 justify-end">
+                                {isInstallment && <span className="text-[10px] font-medium text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md">{`${item.numero_parcela}/${item.qtd_parcelas}`}</span>}
+                                <span>{formatMoney(item.amount || 0)}</span>
+                            </div>
+                            <div className="text-[10px] uppercase font-bold text-slate-500 mt-1">
+                              {item.metodo_pagamento || '-'}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
 
           </div>
 
           {/* FOOTER */}
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-3">
-            <button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting} 
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Salvando...' : (despesaParaEditar ? 'Atualizar Despesa' : 'Criar Despesa')}
-              {!isSubmitting && <Check className="w-5 h-5" />}
-            </button>
-            {despesaParaEditar && (
+            {activeTab === 'form' ? (
+              <>
+                <button 
+                  onClick={handleSubmit} 
+                  disabled={isSubmitting} 
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Salvando...' : (despesaParaEditar ? 'Atualizar Despesa' : 'Criar Despesa')}
+                  {!isSubmitting && <Check className="w-5 h-5" />}
+                </button>
+                {despesaParaEditar && (
+                  <button 
+                    onClick={handleDelete} 
+                    type="button" 
+                    className="w-full py-3 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Excluir Despesa
+                  </button>
+                )}
+              </>
+            ) : (
               <button 
-                onClick={handleDelete} 
-                type="button" 
-                className="w-full py-3 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                onClick={() => setActiveTab('form')}
+                className="w-full py-4 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <Trash2 className="w-4 h-4" /> Excluir Despesa
+                Voltar ao Formulário
               </button>
             )}
           </div>
