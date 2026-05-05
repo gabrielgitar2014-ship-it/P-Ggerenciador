@@ -40,7 +40,8 @@ const BankCard = ({ banco, valor, onClick, index, selectedMonth, comprovanteUrl,
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `fatura_${banco.nome}_${selectedMonth}_${Date.now()}.${fileExt}`;
+      const safeBankName = banco.nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const fileName = `fatura_${safeBankName}_${selectedMonth}_${Date.now()}.${fileExt}`;
       const filePath = `faturas/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
