@@ -36,6 +36,13 @@ export function FinanceProvider({ children }) {
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const syncingRef = useRef(false);
 
+  useEffect(() => {
+    const savedLastSyncedAt = localStorage.getItem('lastSyncedAt');
+    if (savedLastSyncedAt) {
+      setLastSyncedAt(new Date(savedLastSyncedAt));
+    }
+  }, []);
+
   // --- BUSCA DE DADOS (Fetch Data) ---
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -88,7 +95,9 @@ export function FinanceProvider({ children }) {
     try {
       try { await supabase.functions.invoke('atualizar-cache-despesas', { body: {} }); } catch (e) {}
       await fetchData();
-      setLastSyncedAt(new Date());
+      const now = new Date();
+      setLastSyncedAt(now);
+      localStorage.setItem('lastSyncedAt', now.toISOString());
     } catch (e) { setError(e.message); } 
     finally { setIsSyncing(false); syncingRef.current = false; }
   }, [fetchData]);
