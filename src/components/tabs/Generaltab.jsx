@@ -188,7 +188,7 @@ const ListItem = ({ title, subtitle, rightText, icon: Icon, iconBg }) => {
 };
 
 // ---------- MAIN ----------
-export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
+export default function GeneralTab({ selectedMonth, onNavigate }) {
   const { showModal } = useModal();
   const { transactions, allParcelas, variableExpenses, saveIncome, saveExpense } = useFinance();
   const navigate = useNavigate();
@@ -197,7 +197,33 @@ export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
   const [localDespesaOpen, setLocalDespesaOpen] = useState(false);
 
   const greeting = useMemo(() => getGreetingByHour(new Date()), []);
-  const displayName = userName && String(userName).trim() ? String(userName).trim() : "Gabriel Ricco";
+  const [displayName, setDisplayName] = useState("...");
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle(); // maybeSingle evita erro PGRST116 caso a linha não exista
+            
+          if (data && data.full_name) {
+            setDisplayName(data.full_name.trim());
+          } else {
+            // Tenta pegar dos metadados da autenticação, senão cai para genérico
+            setDisplayName(user.user_metadata?.full_name || "Usuário");
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar perfil do usuário:", err);
+        setDisplayName("Usuário");
+      }
+    };
+    fetchUserProfile();
+  }, []);
   
   // --- ESTADOS E LÓGICA DA META ATUAL ---
   const [currentMeta, setCurrentMeta] = useState(null);
