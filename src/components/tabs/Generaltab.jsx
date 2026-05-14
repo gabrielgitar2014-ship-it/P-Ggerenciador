@@ -6,7 +6,7 @@
 // - Direita: fixas perto de vencer (próximos 7 dias)
 // - Botão Nova Despesa abre modal (registry) e tem fallback para modal local
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useFinance } from "../../context/FinanceContext";
 import { useVisibility } from "../../context/VisibilityContext";
 import { useModal } from "../../context/ModalContext";
@@ -19,9 +19,12 @@ import {
   Wallet,
   CircleDollarSign,
   ChevronRight,
+  Target,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../supabaseClient";
+import { parseISO, isWithinInterval } from "date-fns";
 
 // ✅ AJUSTE O CAMINHO SE NECESSÁRIO
 import NovaDespesaModal from "../modals/NovaDespesaModal"; // <- troque se seu path for outro
@@ -195,6 +198,57 @@ export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
 
   const greeting = useMemo(() => getGreetingByHour(new Date()), []);
   const displayName = userName && String(userName).trim() ? String(userName).trim() : "Gabriel Ricco";
+  
+  // --- ESTADOS E LÓGICA DA META ATUAL ---
+  const [currentMeta, setCurrentMeta] = useState(null);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCurrentMeta = async () => {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data, error } = await supabase
+          .from('metas_semanais')
+          .select('*')
+          .lte('data_inicio', todayStr)
+          .gte('data_fim', todayStr)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+          
+        if (error && error.code !== 'PGRST116') throw error;
+        setCurrentMeta(data || null);
+      } catch (err) {
+        console.error("Erro ao buscar meta atual:", err);
+      } finally {
+        setMetaLoading(false);
+      }
+    };
+    fetchCurrentMeta();
+  }, []);
+
+  const metaProgress = useMemo(() => {
+    if (!currentMeta) return null;
+    let gasto = 0;
+    const start = parseISO(currentMeta.data_inicio);
+    const end = parseISO(currentMeta.data_fim);
+    end.setHours(23, 59, 59, 999);
+    const actualCreatedAt = currentMeta.created_at ? new Date(currentMeta.created_at) : new Date(0);
+
+    (variableExpenses || []).forEach((d) => {
+      if (d.data_compra) {
+        const dDate = parseISO(d.data_compra);
+        const expenseCreatedAt = d.created_at ? new Date(d.created_at) : new Date(0);
+        if (isWithinInterval(dDate, { start, end }) && expenseCreatedAt >= actualCreatedAt) {
+          gasto += Number(d.amount);
+        }
+      }
+    });
+
+    const metaVal = Number(currentMeta.meta_valor);
+    const pct = Math.min((gasto / metaVal) * 100, 100);
+    return { gasto, metaVal, pct };
+  }, [currentMeta, variableExpenses]);
 
   const { totalRendas, totalDespesas, saldoMes } = useMemo(() => {
     const monthTx = (transactions || []).filter((t) => pickMonthMatch(t?.date, selectedMonth));
@@ -412,8 +466,8 @@ export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
         />
       </div>
 
-      {/* 2 COLUNAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* 3 COLUNAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <GlassCard className="p-5">
           <div className="relative flex items-center justify-between mb-4">
             <div className="text-slate-900 dark:text-white font-extrabold text-base">
@@ -476,6 +530,67 @@ export default function GeneralTab({ selectedMonth, onNavigate, userName }) {
                   iconBg="bg-amber-500/80"
                 />
               ))
+            )}
+          </div>
+        </GlassCard>
+
+        {/* NOVO CARD: META DO PERÍODO */}
+        <GlassCard className="p-5 flex flex-col">
+          <div className="relative flex items-center justify-between mb-4">
+            <div className="text-slate-900 dark:text-white font-extrabold text-base flex items-center gap-2">
+              <Target className="w-5 h-5 text-blue-500" /> Meta do Período
+            </div>
+            <button
+              onClick={() => navigate("/meta-semanal")}
+              className="text-xs font-bold inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"
+            >
+              Ver mais <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="relative flex-1 flex flex-col justify-center">
+            {metaLoading ? (
+              <div className="text-slate-600 dark:text-white/60 text-sm text-center">
+                Carregando meta...
+              </div>
+            ) : !currentMeta ? (
+               <div className="text-slate-600 dark:text-white/60 text-sm text-center">
+                 Nenhuma meta ativa para hoje.
+                 <br />
+                 <button onClick={() => navigate("/meta-semanal")} className="mt-2 text-blue-500 font-bold hover:underline">
+                   Criar uma meta
+                 </button>
+               </div>
+            ) : (
+              <div className="space-y-4 mt-2">
+                <div className="text-center">
+                  <div className="text-3xl font-black text-slate-900 dark:text-white">
+                    {formatCurrencyBRL(metaProgress.gasto)}
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-white/60 font-medium mt-1">
+                    de {formatCurrencyBRL(metaProgress.metaVal)}
+                  </div>
+                </div>
+
+                <div className="w-full h-4 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner mt-2">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-1000 ${
+                      metaProgress.pct >= 100 ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]' :
+                      metaProgress.pct >= 85 ? 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]' : 
+                      'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]'
+                    }`}
+                    style={{ width: `${metaProgress.pct}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs font-bold pt-1">
+                  <span className="text-slate-500 dark:text-white/60">
+                    {currentMeta.data_inicio.split('-').reverse().join('/')} até {currentMeta.data_fim.split('-').reverse().join('/')}
+                  </span>
+                  <span className={metaProgress.pct >= 85 ? "text-rose-500" : "text-emerald-500"}>
+                    {metaProgress.pct.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         </GlassCard>
