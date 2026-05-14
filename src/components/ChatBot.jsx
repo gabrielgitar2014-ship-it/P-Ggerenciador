@@ -49,7 +49,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       sender: 'bot',
-      text: 'Olá! Eu sou o GenFinance, seu assistente financeiro. Como posso ajudar você hoje?'
+      text: 'Olá! Eu sou o GenFinance, seu assistente financeiro. No momento estou enfrentando problemas técnicos para funcionar. Mas não se preocupe nossa equipe está trabalhando para resolver e voltarei em breve :)'
     }
   ]);
   
