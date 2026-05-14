@@ -1,0 +1,278 @@
+================================================================================
+                         DOCUMENTAÇÃO TÉCNICA E CHANGELOG
+================================================================================
+
+DATA: 13 de Maio de 2026
+AUTOR: Desenvolvedor IA / GitHub Copilot
+PROJETO: P-Ggerenciador
+
+⚠️ AVISO OBRIGATÓRIO: Toda e qualquer alteração arquitetural, criação de nova 
+funcionalidade (feature) ou correção de bug crítico DEVE ser obrigatoriamente 
+registrada neste documento. A manutenção deste log é vital para o controle de 
+versão e entendimento de regras de negócios por toda a equipe.
+
+--------------------------------------------------------------------------------
+RESUMO DAS MODIFICAÇÕES
+--------------------------------------------------------------------------------
+Este documento registra de maneira profissional as alterações realizadas no 
+código-fonte, assegurando o devido acompanhamento por parte da equipe de 
+engenharia de software e demais desenvolvedores envolvidos no projeto.
+
+--------------------------------------------------------------------------------
+CHECKLIST DE TAREFAS CONCLUÍDAS
+--------------------------------------------------------------------------------
+[X] 1. Criar e implementar funcionalidade para edição da data de fechamento 
+       (e outros parâmetros) de um cartão de crédito existente.
+[X] 2. Criar documento formal de registro (este arquivo).
+[X] 3. Corrigir erro PGRST116 (406 Not Acceptable) na edição de cartões padrão/bloqueados por RLS.
+
+--------------------------------------------------------------------------------
+CHECKLIST - ATUALIZAÇÕES DA 2ª FASE (INTELIGÊNCIA E AUTOMAÇÃO)
+--------------------------------------------------------------------------------
+[X] 12. Melhoria da regra de início das Metas (Começar sempre do Zero).
+[X] 13. Arquitetura orientada a Eventos: Gatilhos SQL (Triggers) e Webhooks.
+[X] 14. Suporte a Multi-Usuários e Integração com IA Gemini (Coach Financeiro).
+[X] 15. Inclusão de Widget da Meta Ativa no Dashboard Principal.
+
+--------------------------------------------------------------------------------
+DETALHAMENTO TÉCNICO DAS ALTERAÇÕES
+--------------------------------------------------------------------------------
+
+1. ARQUIVO MODIFICADO: src/components/tabs/BancosTab.jsx
+   
+   AÇÕES REALIZADAS:
+   - Importação do Ícone: Adicionado o ícone `Edit2` da biblioteca 
+     `lucide-react` para oferecer uma representação visual clara de edição.
+   
+   - Refatoração do Componente BankCard: 
+     - Incluída a propriedade `onEdit` para o disparo da ação de alteração.
+     - Inserido um novo botão no rodapé do cartão (junto às ações de visualização 
+       e troca de comprovante) para acionar a edição do método de pagamento 
+       correspondente.
+   
+   - Refatoração do Modal de Cadastro: 
+     - O antigo componente `NewCardModal` foi renomeado para `CardModal` com a
+       finalidade de promover o reúso de código.
+     - Implementado o suporte à propriedade `initialData`. Por meio do `useEffect`,
+       os campos do formulário (Nome, Cor, Dia de Fechamento, Dia de Vencimento e 
+       Últimos Dígitos) são preenchidos automaticamente quando um cartão já 
+       existente é passado para edição.
+     - A função de submissão do modal agora repassa o `id` do cartão quando em 
+       modo de edição, viabilizando o uso da operação UPSERT/Update já prevista 
+       no hook financeiro subjacente.
+   
+   - Atualização do Componente Principal (BancosTab):
+     - Introdução do estado local `cardToEdit` para armazenar os dados do cartão 
+       que está sendo ativamente editado.
+     - Criação das funções auxiliares `openNewCardModal` e `openEditCardModal` 
+       para centralizar a lógica de abertura do modal e correta configuração 
+       do estado.
+     - Ao finalizar a persistência com sucesso (em `handleSaveCard`), o estado 
+       de edição é devidamente limpo e o modal encerrado.
+
+2. IMPACTO E COMPATIBILIDADE:
+   - A operação utiliza a função `savePaymentMethod` originária do 
+     `FinanceContext`, que já estava parametrizada para executar um comando
+     `update` no banco de dados (Supabase) caso um identificador (`id`) 
+     estivesse presente no payload.
+   - Não houve introdução de novas dependências ou alterações na estrutura do 
+     banco de dados, garantindo compatibilidade retroativa e risco minimizado.
+
+================================================================================
+                        ASSINATURA DE CONTROLE DE VERSÃO
+================================================================================
+
+3. ARQUIVOS MODIFICADOS: src/context/FinanceContext.jsx e src/components/tabs/BancosTab.jsx
+   
+   AÇÕES REALIZADAS:
+   - Correção do erro de requisição PATCH 406 (PostgREST PGRST116): 
+     Durante a edição de um cartão, a chamada ao Supabase utilizava o modificador `.single()`.
+     Quando a edição é efetuada sobre um cartão pré-cadastrado no sistema (sem `user_id` 
+     vinculado ao usuário atual) ou cuja atualização é bloqueada pelas políticas de RLS 
+     (Row Level Security), a API retorna 0 linhas modificadas, o que lançava uma exceção 
+     crítica devido à restrição do `.single()`.
+   - Modificação efetuada: O modificador `.single()` foi substituído por uma consulta padrão
+     (`.select()`). Em seguida, implementou-se uma verificação explícita do tamanho do array
+     retornado.
+   - Tratamento de Falha: Caso nenhuma linha seja atualizada (`data.length === 0`), uma
+     exceção amigável e legível é lançada.
+   - UI Aprimorada: O componente `BancosTab.jsx` foi ajustado para exibir o `error.message`
+     específico no `alert`, comunicando ao usuário que ele não possui permissão para editar 
+     os cartões-padrão do sistema, instruindo-o a criar um cartão novo caso necessário.
+
+--------------------------------------------------------------------------------
+[X] 4. Criar página "Meta Semanal" e barra de progresso.
+[X] 5. Criar protótipo da Edge Function e Cron Job (Notificações Telegram).
+
+4. ARQUIVOS MODIFICADOS E CRIADOS: src/pages/MetaSemanalPage.jsx, src/App.jsx, src/components/tabs/Generaltab.jsx
+   
+   AÇÕES REALIZADAS:
+   - Interface da Nova Página: Desenvolvido o componente \`MetaSemanalPage.jsx\` 
+     com interface moderna contendo resumo do saldo do mês, input para inserir 
+     a meta e barra de progresso dinâmica que varia as cores (Verde, Laranja,
+     Vermelho) dependendo da porcentagem de uso na semana vigente.
+   - Navegação: Inserida rota \`/meta-semanal\` no \`App.jsx\` e ativada a navegação
+     ao clicar no Hero Card de saldo no \`Generaltab.jsx\`.
+   - Lógica de Cálculo: Cálculo de gastos consumidos da semana em tempo real
+     (filtrando fixas, variáveis e parcelas com datas da semana correspondente).
+   - SQL Fornecido: Construído script SQL (\`sql_meta_semanal.sql\`) para 
+     gerar a tabela necessária no Supabase.
+
+5. ARQUIVOS CRIADOS: supabase/functions/monitor-weekly-goal/index.ts
+   
+   AÇÕES REALIZADAS:
+   - Edge Function (Protótipo): Construída função serverless usando Deno. Ela
+     busca todas as metas, calcula os gastos na semana de cada usuário, 
+     compara a porcentagem (85%, 95%, 100%) e aciona a API do Telegram 
+     para disparar os Alertas.
+   - Estado de Notificação: Adicionadas flags (\`notificado_85\`, \`notificado_95\`, 
+     \`notificado_100\`) na tabela para evitar spam de alertas caso o cron 
+     execute várias vezes na mesma semana.
+
+--------------------------------------------------------------------------------
+[X] 6. Ajustar a base de cálculo de Saldo Mensal na aba Meta Semanal.
+
+6. ARQUIVOS MODIFICADOS: src/pages/MetaSemanalPage.jsx
+   
+   AÇÕES REALIZADAS:
+   - Mudança Lógica de Saldo: Como o usuário concentra seus gastos via cartão de crédito,
+     a leitura de saldo que orienta as metas e o orçamento não deve olhar para o 
+     mês corrente, mas sim provisionar a fatura e a renda que compensarão no próximo mês.
+   - Refatoração: O script de filtro para a soma do card do Saldo que verificava 
+     \`currentMonth\` foi substituído por \`nextMonth\`, com a devida formatação e adição 
+     de +1 na contagem do Date object.
+   - Interface (UI): O título do card de destaque foi alterado de "Saldo Total do Mês" 
+     para "Saldo Total do Próximo Mês".
+
+--------------------------------------------------------------------------------
+[X] 7. Atualizar a Edge Function do Telegram para se adequar ao padrão CORS e Retornos do Supabase.
+
+7. ARQUIVOS MODIFICADOS: supabase/functions/monitor-weekly-goal/index.ts
+   
+   AÇÕES REALIZADAS:
+   - CORS Headers: Adicionada a proteção para chamadas pré-flight (OPTIONS) 
+     retornando os headers corretos para a URL chamadora, evitando que o webhook
+     seja bloqueado por falta de \`Access-Control-Allow-Origin\`.
+   - Estrutura de Resposta: O script agora retorna todas as saídas 
+     (\`status 200\` ou \`status 500\`) em formato JSON, com os atributos 
+     \`success\` e \`message\` (idênticos ao padrão do index.ts funcional).
+   - Log de Sistema: Adicionado \`console.log()\` nos pontos chave 
+     da aplicação para facilitar a depuração no painel de Logs do Supabase.
+
+--------------------------------------------------------------------------------
+[X] 8. Desabilitar restrições RLS da tabela metas_semanais para permitir compartilhamento de despesas e metas entre parceiros.
+
+8. ARQUIVOS MODIFICADOS: src/pages/MetaSemanalPage.jsx, supabase/functions/monitor-weekly-goal/index.ts
+   
+   AÇÕES REALIZADAS:
+   - Adaptação do App para Uso Familiar Compartilhado: Como o app possui registro de
+     novos usuários bloqueado por padrão e o banco é usado pelo casal, o RLS
+     da tabela \`metas_semanais\` precisou ser desligado para evitar os conflitos
+     de \`user_id\`.
+   - Página da Meta: Removido o filtro rigoroso de \`.eq('user_id', user.id)\` ao 
+     buscar a meta, garantindo que o casal acompanhe a mesma meta unificada. 
+     A validação de "usuário não autenticado" também foi aliviada no momento 
+     de submeter.
+   - Script SQL Fornecido (\`sql_meta_semanal_shared.sql\`): Adicionado o comando para 
+     desligar o RLS e tornar a coluna \`user_id\` opcional.
+   - Edge Function (Telegram): A consulta do bot para contabilizar as despesas
+     foi editada para NÃO filtrar mais o \`user_id\`, garantindo que se você
+     ou sua esposa cadastrarem um gasto na semana, o valor será subtraído 
+     do total do casal no bot.
+
+--------------------------------------------------------------------------------
+[X] 9. Corrigir erro de permissão negada (403/42501) na tabela metas_semanais concedendo GRANTs adequados.
+
+9. ARQUIVOS MODIFICADOS: sql_grant_fix.sql (novo)
+   
+   AÇÕES REALIZADAS:
+   - Script Corretivo: O Supabase, por segurança padrão em alguns projetos novos, não 
+     apenas bloqueia operações via RLS, mas sequer concede o privilégio (GRANT) para 
+     as roles da API (anon / authenticated) poderem fazer INSERT/UPDATE na tabela.
+     Criei o script \`sql_grant_fix.sql\` com os comandos GRANT explícitos para
+     liberar essas permissões, resolvendo definitivamente o status 403.
+
+--------------------------------------------------------------------------------
+[X] 10. Evoluir a Meta Semanal para suportar Múltiplas Metas com Datas Customizadas e Funcionalidade de CRUD.
+
+10. ARQUIVOS MODIFICADOS: src/pages/MetaSemanalPage.jsx, supabase/functions/monitor-weekly-goal/index.ts
+   
+   AÇÕES REALIZADAS:
+   - Refatoração do Componente React (CRUD Completo): O sistema não apenas cria e edita a meta "atual". 
+     O usuário agora insere a \`data_inicio\` e \`data_fim\`, permitindo criar orçamentos semanais,
+     quinzenais ou de feriados.
+   - Layout Visual (Lista de Metas): Adicionada listagem inteligente mostrando todas as metas cadastradas,
+     contendo seus respectivos dias, uma barra de progresso calculada exata e unicamente sobre
+     os limites de suas datas, além dos botões nativos de "Editar" e "Excluir".
+   - Cálculo Individual de Período: Desenvolvida a função \`calcularGastoPeriodo\`, que analisa o array 
+     de transações da API (fixas e parcelas), validando os intervalos com precisão de timezone 
+     (\`date-fns\`).
+   - Edge Function Flexível: O bot não amarra mais na semana de "domingo a sábado". Ele agora varre
+     todas as metas cadastradas em que a "data de hoje" se encontra dentro da janela ativa e faz 
+     a soma dos gastos contra ela.
+
+--------------------------------------------------------------------------------
+[X] 11. Refinar a lógica da Meta Semanal para focar em "Data da Compra" (Novos Gastos).
+
+11. ARQUIVOS MODIFICADOS: src/pages/MetaSemanalPage.jsx, supabase/functions/monitor-weekly-goal/index.ts
+   
+   AÇÕES REALIZADAS:
+   - Mudança de Perspectiva: O usuário esclareceu que a meta não é para controlar as 
+     "parcelas caindo/vencendo na semana", mas sim para estabelecer um teto orçamentário
+     de "novas compras" (o que está sendo gasto ativamente hoje).
+   - Componente React: A função \`calcularGastoPeriodo\` foi reescrita para consumir 
+     a variável \`variableExpenses\` (tabela de despesas/compras brutas), extraindo a
+     \`data_compra\` e ignorando por completo as \`transactions\` (contas fixas) e \`allParcelas\` 
+     (compras parceladas antigas que apenas vencem no mês/semana em questão).
+   - Edge Function (Bot Telegram): O cálculo interno no Supabase seguiu a mesma regra. 
+     O script deixou de somar "transactions" e "parcelas" para fazer um SUM na tabela 
+     "despesas" através do parâmetro "data_compra" dentro do período estipulado pela meta.
+
+--------------------------------------------------------------------------------
+
+12. ARQUIVOS MODIFICADOS: src/pages/MetaSemanalPage.jsx, supabase/functions/monitor-weekly-goal/index.ts
+    
+   AÇÕES REALIZADAS:
+   - Correção de Lógica Temporal: Ao criar uma meta no meio da semana, o sistema 
+     puxava os gastos anteriores (retrospectivos) que compartilhavam as datas. 
+   - Resolução: Inclusão do `created_at` (carimbo de tempo de criação) da meta 
+     na query. O sistema agora só soma as compras cujas datas e horas de registro 
+     no banco sejam maiores ou iguais ao momento exato da criação da meta.
+
+13. ARQUIVOS MODIFICADOS: sql_gatilho_metas.sql (novo), monitor-weekly-goal/index.ts
+    
+   AÇÕES REALIZADAS:
+   - Otimização de Arquitetura: Substituição da abordagem de "Cron Job" (processamento
+     baseado em tempo) para uma arquitetura Reativa baseada em Banco de Dados.
+   - Gatilho Postgres (Trigger): Criado o script `check_meta_semanal` disparado em operações
+     AFTER INSERT, UPDATE ou DELETE na tabela `despesas`. Ele varre as metas ativas,
+     soma os gastos e atualiza dinamicamente as flags `notificado_85/95/100`.
+   - Webhooks Supabase: A tabela `metas_semanais` agora possui a propriedade 
+     `REPLICA IDENTITY FULL` configurada via SQL, enviando o `old_record` no Webhook para 
+     que a Edge Function identifique perfeitamente quando uma flag mudou de `false` para `true`.
+
+14. ARQUIVOS MODIFICADOS: supabase/functions/monitor-weekly-goal/index.ts, index.ts
+    
+   AÇÕES REALIZADAS:
+   - Multi-Usuário Telegram: As Edge Functions principais foram refatoradas para 
+     consumir simultaneamente `TELEGRAM_CHAT_ID` e `TELEGRAM_CHAT_ID2`, unificando 
+     todos os IDs em um array e iterando os envios via API do Telegram. Garantindo 
+     que o casal seja notificado no mesmo milissegundo de novas contas ou metas batidas.
+   - Cálculo de Excedente: O webhook agora recalcula a diferença monetária e informa 
+     ao usuário o "Valor Excedente" (`gasto - meta`) caso ele ultrapasse 100%.
+   - Integração Gemini (Google AI Studio): O Bot agora atua como um Coach Financeiro.
+     Quando um limite (85%, 95% ou 100%) é batido, o Supabase envia um array com 
+     as 5 compras mais recentes (descrição e valor) para o Gemini 2.5 Flash, que
+     formula um conselho financeiro empático, divertido e direcionado à categoria
+     gasta antes de repassar a notificação pro Telegram.
+
+15. ARQUIVOS MODIFICADOS: src/components/tabs/Generaltab.jsx
+    
+   AÇÕES REALIZADAS:
+   - Dashboard UI: O painel inicial do usuário (Liquid Glass) passou de uma 
+     grade de 2 para 3 colunas em Desktop.
+   - Widget Conectado: Adicionado um novo Card intitulado "Meta do Período". Ele se
+     conecta diretamente ao Supabase pegando a primeira meta vigente baseada na data de "hoje"
+     e plota em tempo real a soma dos `variableExpenses`.
+   - UX Preventiva: Se não houver meta vigente para hoje, ele embute um link 
+     de ação "Criar uma meta" enviando o usuário direto para a tela de configurações.
