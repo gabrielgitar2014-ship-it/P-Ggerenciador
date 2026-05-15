@@ -369,10 +369,10 @@ export default function GeneralTab({ selectedMonth, onNavigate }) {
         {/* Header */}
         <div className="px-1">
           <div className="text-slate-900 dark:text-white text-lg md:text-2xl font-extrabold tracking-tight">
-            {greeting}, <span className="text-slate-800 dark:text-white/90">{displayName}</span> ☺️
+            {greeting}, <span className="text-slate-800 dark:text-white/90">{displayName}</span> ☺️, Tudo bem ? 
           </div>
           <div className="text-slate-600 dark:text-white/60 text-sm mt-1">
-            Visão geral do mês {selectedMonth}
+           Aqui está Visão geral do mês {selectedMonth}, boa gestão✌🏼.
           </div>
         </div>
       </div>
