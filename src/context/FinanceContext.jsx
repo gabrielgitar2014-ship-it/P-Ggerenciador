@@ -342,19 +342,26 @@ type: 'expense', // O banco EXIGE que essa coluna não seja nula
   };
   
   const getSaldoPorBanco = (banco, selectedMonth) => {
-    const fixas = transactions.filter(t => 
-      t.metodo_pagamento?.toLowerCase() === banco.nome?.toLowerCase() &&
+    const bankName = banco.nome?.toLowerCase();
+    const [selYear, selMonth] = selectedMonth.split('-').map(Number);
+    const totalSelectedMonths = selYear * 12 + selMonth;
+
+    const fixas = transactions.filter(t =>
+      t.metodo_pagamento?.toLowerCase() === bankName &&
       t.type === 'expense' && t.is_fixed && t.date?.startsWith(selectedMonth)
     );
-    const parentIds = variableExpenses.filter(d => 
-      d.metodo_pagamento?.toLowerCase() === banco.nome?.toLowerCase()
-    ).map(d => d.id);
-    const variaveis = allParcelas.filter(p => 
-      parentIds.includes(p.despesa_id) && p.data_parcela?.startsWith(selectedMonth)
-    );
-    
-    return fixas.reduce((acc, t) => acc - Number(t.amount), 0) + 
-           variaveis.reduce((acc, p) => acc - Number(p.amount), 0);
+
+    const variaveis = variableExpenses.filter(v => {
+      if (v.metodo_pagamento?.toLowerCase() !== bankName) return false;
+      const startStr = v.mes_inicio_cobranca || v.data_compra?.slice(0, 7);
+      if (!startStr) return false;
+      const [startYear, startMonth] = startStr.split('-').map(Number);
+      const diff = totalSelectedMonths - (startYear * 12 + startMonth);
+      return diff >= 0 && diff < (v.qtd_parcelas || 1);
+    });
+
+    return fixas.reduce((acc, t) => acc - Number(t.amount), 0) +
+           variaveis.reduce((acc, v) => acc - Number(v.amount) / (v.qtd_parcelas || 1), 0);
   };
 
   const toggleFixedExpensePaidStatus = async (id, status) => {
