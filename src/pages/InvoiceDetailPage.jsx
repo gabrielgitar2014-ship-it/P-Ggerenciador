@@ -6,9 +6,11 @@ import { useFinance } from '../context/FinanceContext';
 import { useVisibility } from '../context/VisibilityContext';
 import { motion } from 'framer-motion';
 import { supabase } from '../supabaseClient';
-import { 
-  ChevronLeft, ShoppingBag, Receipt, Calendar, AlertCircle, Upload, CheckCircle
+import {
+  ChevronLeft, ShoppingBag, Receipt, Calendar, AlertCircle, Upload, CheckCircle, ChevronRight
 } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 // --- HELPERS ---
 function formatCurrencyBRL(value) {
@@ -43,6 +45,8 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
 
   const [comprovanteUrl, setComprovanteUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'parcelado' | 'fixo'
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Buscar o comprovante da fatura ao montar
   useEffect(() => {
@@ -172,6 +176,7 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
           amount: installmentValue,
           displayDate: v.data_compra, // Exibe a data ORIGINAL da compra
           parcelInfo: `${numeroParcela}/${qtdParcelas}`,
+          qtdParcelas,
           categoryName: cat?.nome || 'Geral'
         };
       });
@@ -203,15 +208,34 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
 
   }, [banco, selectedMonth, variableExpenses, transactions, categorias]);
 
+  const filteredItems = useMemo(() => {
+    if (activeFilter === 'parcelado') return invoiceItems.items.filter(i => i.qtdParcelas > 1);
+    if (activeFilter === 'fixo') return invoiceItems.items.filter(i => i.parcelInfo === null);
+    return invoiceItems.items;
+  }, [invoiceItems.items, activeFilter]);
+
+  const displayTotal = useMemo(() =>
+    filteredItems.reduce((acc, i) => acc + i.amount, 0)
+  , [filteredItems]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+
+  const pagedItems = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredItems.slice(start, start + PAGE_SIZE);
+  }, [filteredItems, currentPage]);
+
   // Agrupar por Data da Compra para exibição visual
   const groupedItems = useMemo(() => {
-    return invoiceItems.items.reduce((acc, item) => {
+    return pagedItems.reduce((acc, item) => {
         const dateKey = item.displayDate;
         if (!acc[dateKey]) acc[dateKey] = [];
         acc[dateKey].push(item);
         return acc;
     }, {});
-  }, [invoiceItems.items]);
+  }, [pagedItems]);
+
+  useEffect(() => { setCurrentPage(1); }, [activeFilter]);
 
   if (!banco) return null;
 
@@ -243,7 +267,7 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
                     <div>
                         <p className="text-xs text-white/80 font-medium">Total da Fatura</p>
                         <p className="text-2xl font-bold">
-                            {valuesVisible ? formatCurrencyBRL(invoiceItems.total) : '••••••'}
+                            {valuesVisible ? formatCurrencyBRL(displayTotal) : '••••••'}
                         </p>
                     </div>
                 </div>
@@ -277,7 +301,29 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
 
       {/* LISTA DE ITENS DA FATURA */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-         {invoiceItems.items.length === 0 ? (
+
+        {/* FILTROS */}
+        <div className="flex gap-2">
+          {[
+            { key: 'all', label: 'Todos' },
+            { key: 'parcelado', label: 'Parcelados' },
+            { key: 'fixo', label: 'Fixos' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setActiveFilter(f.key)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+                activeFilter === f.key
+                  ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 border-transparent'
+                  : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+         {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center mt-10 text-slate-400">
                 <AlertCircle className="w-12 h-12 mb-2 opacity-50" />
                 <p>Nenhum item nesta fatura.</p>
@@ -322,6 +368,29 @@ export default function InvoiceDetailPage({ banco, onBack, selectedMonth }) {
                 </div>
             ))
          )}
+
+        {/* PAGINAÇÃO */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 pt-2 pb-4">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
